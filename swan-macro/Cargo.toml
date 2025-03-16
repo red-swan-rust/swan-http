@@ -19,4 +19,4 @@ syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 heck = "0.5.0"
-swan-common = { path = "../swan-common" }
+swan-common = "0.1.0"

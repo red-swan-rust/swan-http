@@ -1003,13 +1003,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "swan-common"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40df3e2d98caec3fea4445d440db4f65a99ad70a5443c60e175a409acd3827f9"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "proc-macro2",
+ "reqwest",
+ "syn",
+]
+
+[[package]]
 name = "swan-macro"
 version = "0.1.0"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "swan-common",
+ "swan-common 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn",
 ]
 
