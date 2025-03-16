@@ -1,0 +1,18 @@
+[package]
+name = "swan-common"
+version = "0.1.0"
+edition = "2024"
+authors = ["Your Name <iwanttobeaprince@gmail.com>"]
+description = "Common utilities and types for the Swan HTTP client library."
+license = "MIT"
+repository = "https://github.com/red-swan-rust/swan-http.git"
+documentation = "https://docs.rs/swan-http"
+keywords = ["http", "client", "declarative", "rust"]
+categories = ["network-programming", "development-tools", "web-programming::http-client"]
+
+[dependencies]
+reqwest = { version = "0.12", features = ["json"] }
+anyhow = "1.0"
+async-trait = "0.1"
+syn = { version = "2.0", features = ["full"] }
+proc-macro2 = "1.0"
