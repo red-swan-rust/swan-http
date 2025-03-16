@@ -9,6 +9,7 @@ repository = "https://github.com/red-swan-rust/swan-http.git"
 documentation = "https://docs.rs/swan-http"
 keywords = ["http", "client", "declarative", "rust"]
 categories = ["network-programming", "development-tools", "web-programming::http-client"]
+readme = "README.md"
 
 [lib]
 proc-macro = true
