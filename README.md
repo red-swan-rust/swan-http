@@ -1,10 +1,15 @@
 # Swan HTTP - 声明式 Rust HTTP 客户端
 
-[![Crates.io](https://img.shields.io/crates/v/swan-http.svg)](https://crates.io/crates/swan-http)
-[![Documentation](https://docs.rs/swan-http/badge.svg)](https://docs.rs/swan-http)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Swan HTTP 是一个现代的、声明式的 Rust HTTP 客户端库，通过过程宏提供优雅的 API 设计。
+
+## 📦 Crates
+
+Swan HTTP 由两个独立的 crate 组成：
+
+- **[swan-macro](https://crates.io/crates/swan-macro)** [![Crates.io](https://img.shields.io/crates/v/swan-macro.svg)](https://crates.io/crates/swan-macro) - 过程宏组件
+- **[swan-common](https://crates.io/crates/swan-common)** [![Crates.io](https://img.shields.io/crates/v/swan-common.svg)](https://crates.io/crates/swan-common) - 核心运行时组件
 
 ## 🌟 特性
 
@@ -25,12 +30,14 @@ Swan HTTP 是一个现代的、声明式的 Rust HTTP 客户端库，通过过�
 
 ```toml
 [dependencies]
-swan-macro = "0.1.0"
-swan-common = "0.1.0"
+swan-macro = "0.1.0"   # 过程宏组件
+swan-common = "0.1.0"  # 核心运行时组件
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 ```
+
+> **注意**: 需要同时添加 `swan-macro` 和 `swan-common` 两个依赖才能正常使用 Swan HTTP。
 
 ### 基本用法
 
@@ -416,10 +423,22 @@ cargo run --example retry_integration_test # 🔄 重试机制集成测试
 
 ## 📖 API 文档
 
+### 在线文档
+
+- **[swan-macro 文档](https://docs.rs/swan-macro)** - 过程宏 API 文档
+- **[swan-common 文档](https://docs.rs/swan-common)** - 核心类型和拦截器 API 文档
+
+### 本地文档
+
 详细的 API 文档可以通过以下命令生成并查看：
 
 ```bash
+# 生成所有组件的文档
 cargo doc --open
+
+# 或者生成特定组件的文档
+cargo doc --open -p swan-macro
+cargo doc --open -p swan-common
 ```
 
 ## 🤝 贡献
