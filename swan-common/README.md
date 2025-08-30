@@ -4,21 +4,21 @@
 [![Documentation](https://docs.rs/swan-common/badge.svg)](https://docs.rs/swan-common)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-🌏 **Languages**: [English](README_EN.md) | [中文](README.md)
+🌏 **Languages**: [English](README.md) | [中文](README_CN.md)
 
-Swan Common 是 Swan HTTP 库的核心组件，提供共享的类型定义、拦截器接口和重试机制等基础功能。
+Swan Common is the core component of the Swan HTTP library, providing shared type definitions, interceptor interfaces, retry mechanisms, and other foundational features.
 
-## 🌟 核心功能
+## 🌟 Core Features
 
-- **HTTP 类型定义**: 统一的 HTTP 方法、内容类型等类型定义
-- **拦截器接口**: 高性能的零拷贝拦截器 trait 定义
-- **重试机制**: 完整的指数退避重试策略实现
-- **参数解析**: 宏参数解析和验证逻辑
-- **状态管理**: 应用状态注入的类型支持
+- **HTTP Type Definitions**: Unified HTTP method, content type, and other type definitions
+- **Interceptor Interface**: High-performance zero-copy interceptor trait definitions
+- **Retry Mechanism**: Complete exponential backoff retry strategy implementation
+- **Parameter Parsing**: Macro parameter parsing and validation logic
+- **State Management**: Type support for application state injection
 
-## 📦 安装
+## 📦 Installation
 
-将以下内容添加到你的 `Cargo.toml`:
+Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -27,9 +27,9 @@ async-trait = "0.1"
 anyhow = "1.0"
 ```
 
-## 🔧 主要组件
+## 🔧 Main Components
 
-### HTTP 类型
+### HTTP Types
 
 ```rust
 use swan_common::{HttpMethod, ContentType};
@@ -38,7 +38,7 @@ let method = HttpMethod::Get;
 let content_type = ContentType::Json;
 ```
 
-### 拦截器接口
+### Interceptor Interface
 
 ```rust
 use async_trait::async_trait;
@@ -57,7 +57,7 @@ impl SwanInterceptor for MyInterceptor {
         request_body: &'a [u8],
         context: Option<&(dyn Any + Send + Sync)>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
-        // 零拷贝：仅在需要时修改请求体
+        // Zero-copy: only modify request body when needed
         Ok((request, Cow::Borrowed(request_body)))
     }
 
@@ -66,41 +66,41 @@ impl SwanInterceptor for MyInterceptor {
         response: reqwest::Response,
         context: Option<&(dyn Any + Send + Sync)>,
     ) -> anyhow::Result<reqwest::Response> {
-        println!("响应状态: {}", response.status());
+        println!("Response status: {}", response.status());
         Ok(response)
     }
 }
 ```
 
-### 重试策略
+### Retry Strategy
 
 ```rust
 use swan_common::{RetryPolicy, RetryConfig};
 use syn::LitStr;
 
-// 创建指数重试策略
-let policy = RetryPolicy::exponential(3, 100); // 3次重试，基础延迟100ms
+// Create exponential retry strategy
+let policy = RetryPolicy::exponential(3, 100); // 3 retries, base delay 100ms
 
-// 从字符串解析重试配置
+// Parse retry configuration from string
 let config_str: LitStr = syn::parse_quote!("exponential(5, 200ms)");
 let retry_config = RetryConfig::parse(&config_str)?;
 ```
 
-## 🔄 重试机制特性
+## 🔄 Retry Mechanism Features
 
-- **指数退避算法**: 智能的延迟增长，避免服务器过载
-- **随机抖动**: 防止雷群效应，分散重试时间  
-- **幂等性保护**: 自动检测安全的重试条件
-- **灵活配置**: 支持简化和详细配置语法
+- **Exponential Backoff Algorithm**: Intelligent delay growth to avoid server overload
+- **Random Jitter**: Prevent thundering herd effect by spreading retry times  
+- **Idempotency Protection**: Automatically detect safe retry conditions
+- **Flexible Configuration**: Support both simplified and detailed configuration syntax
 
-### 支持的重试配置格式
+### Supported Retry Configuration Formats
 
 ```rust
-// 简化格式
-"exponential(3, 100ms)"           // 3次重试，基础延迟100ms
-"fixed(max_attempts=4, delay=1s)" // 4次重试，固定延迟1秒
+// Simplified format
+"exponential(3, 100ms)"           // 3 retries, base delay 100ms
+"fixed(max_attempts=4, delay=1s)" // 4 retries, fixed delay 1 second
 
-// 详细格式
+// Detailed format
 "exponential(
     max_attempts=5,
     base_delay=200ms,
@@ -111,31 +111,31 @@ let retry_config = RetryConfig::parse(&config_str)?;
 )"
 ```
 
-## ⚡ 性能特性
+## ⚡ Performance Features
 
-- **零拷贝拦截器**: 使用 `Cow<[u8]>` 避免不必要的内存拷贝
-- **编译时优化**: 重试策略在编译时确定，零运行时开销
-- **轻量级结构**: `RetryPolicy` 内存占用 ≤ 64 bytes
+- **Zero-Copy Interceptors**: Use `Cow<[u8]>` to avoid unnecessary memory copying
+- **Compile-Time Optimization**: Retry strategies determined at compile time with zero runtime overhead
+- **Lightweight Structures**: `RetryPolicy` memory footprint ≤ 64 bytes
 
-## 🧪 测试
+## 🧪 Testing
 
-运行测试：
+Run tests:
 
 ```bash
 cargo test --lib
 ```
 
-## 📖 文档
+## 📖 Documentation
 
-详细的 API 文档：
+Detailed API documentation:
 
 ```bash
 cargo doc --open
 ```
 
-## 🤝 与 Swan Macro 配合使用
+## 🤝 Use with Swan Macro
 
-Swan Common 通常与 [Swan Macro](https://crates.io/crates/swan-macro) 配合使用：
+Swan Common is typically used with [Swan Macro](https://crates.io/crates/swan-macro):
 
 ```toml
 [dependencies]
@@ -143,6 +143,6 @@ swan-common = "0.2"
 swan-macro = "0.2"
 ```
 
-## 📄 许可证
+## 📄 License
 
-本项目采用 MIT 许可证。详情请查看 [LICENSE](../LICENSE) 文件。
+This project is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details.

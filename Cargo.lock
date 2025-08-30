@@ -1161,7 +1161,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "swan-common"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1177,9 +1177,9 @@ dependencies = [
 
 [[package]]
 name = "swan-common"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "820979e1e32c5d18c1974de2f8446c273c1d85a2a963b948694c9dc98c4eb3e9"
+checksum = "4a4507a34abe56d0244c6d8a387565ef85377c6117a383a7282d973479d088c6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1205,20 +1205,20 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "swan-common 0.2.3",
+ "swan-common 0.2.4",
  "swan-macro",
  "tokio",
 ]
 
 [[package]]
 name = "swan-macro"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote",
  "serde_json",
- "swan-common 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "swan-common 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn",
 ]
 
