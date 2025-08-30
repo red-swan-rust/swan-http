@@ -1,0 +1,66 @@
+[package]
+name = "swan-http-examples"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "simple_demo"
+path = "simple_demo.rs"
+
+[[example]]
+name = "basic_usage"
+path = "basic_usage.rs"
+
+[[example]]
+name = "interceptor_usage"
+path = "interceptor_usage.rs"
+
+[[example]]
+name = "complex_api_example"
+path = "complex_api_example.rs"
+
+[[example]]
+name = "state_injection_example"
+path = "state_injection_example.rs"
+
+[[example]]
+name = "dynamic_params_example"
+path = "dynamic_params_example.rs"
+
+[[example]]
+name = "performance_analysis"
+path = "performance_analysis.rs"
+
+[[example]]
+name = "optimized_performance_analysis"
+path = "optimized_performance_analysis.rs"
+
+[[example]]
+name = "retry_example"
+path = "retry_example.rs"
+
+[[example]]
+name = "simple_retry_test"
+path = "simple_retry_test.rs"
+
+[[example]]
+name = "retry_integration_test"
+path = "retry_integration_test.rs"
+
+[[example]]
+name = "complete_retry_example"
+path = "complete_retry_example.rs"
+
+[dependencies]
+swan-common = { path = "../swan-common" }
+swan-macro = { path = "../swan-macro" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+env_logger = "0.11"
+reqwest = { workspace = true }
+async-trait = "0.1"
+log = "0.4"
+fastrand = "2.0"
