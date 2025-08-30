@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+🌏 **Languages**: [English](README_EN.md) | [中文](README.md)
+
 Swan HTTP 是一个现代的、声明式的 Rust HTTP 客户端库，通过过程宏提供优雅的 API 设计。
 
 ## 📦 Crates

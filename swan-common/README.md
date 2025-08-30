@@ -4,6 +4,8 @@
 [![Documentation](https://docs.rs/swan-common/badge.svg)](https://docs.rs/swan-common)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+🌏 **Languages**: [English](README_EN.md) | [中文](README.md)
+
 Swan Common 是 Swan HTTP 库的核心组件，提供共享的类型定义、拦截器接口和重试机制等基础功能。
 
 ## 🌟 核心功能
@@ -137,8 +139,8 @@ Swan Common 通常与 [Swan Macro](https://crates.io/crates/swan-macro) 配合�
 
 ```toml
 [dependencies]
-swan-common = "0.2.0"
-swan-macro = "0.2.0"
+swan-common = "0.2"
+swan-macro = "0.2"
 ```
 
 ## 📄 许可证
