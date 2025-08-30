@@ -30,8 +30,8 @@ Swan HTTP 由两个独立的 crate 组成：
 
 ```toml
 [dependencies]
-swan-macro = "0.1.0"   # 过程宏组件
-swan-common = "0.1.0"  # 核心运行时组件
+swan-macro = "0.2.0"   # 过程宏组件
+swan-common = "0.2.0"  # 核心运行时组件
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }

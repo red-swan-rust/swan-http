@@ -20,7 +20,7 @@ Swan Common 是 Swan HTTP 库的核心组件，提供共享的类型定义、拦
 
 ```toml
 [dependencies]
-swan-common = "0.1.0"
+swan-common = "0.2"
 async-trait = "0.1"
 anyhow = "1.0"
 ```
@@ -137,8 +137,8 @@ Swan Common 通常与 [Swan Macro](https://crates.io/crates/swan-macro) 配合�
 
 ```toml
 [dependencies]
-swan-common = "0.1.0"
-swan-macro = "0.1.0"
+swan-common = "0.2.0"
+swan-macro = "0.2.0"
 ```
 
 ## 📄 许可证

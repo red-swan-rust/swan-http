@@ -21,8 +21,8 @@ Swan Macro 是 Swan HTTP 库的过程宏组件，提供声明式的 HTTP 客户�
 
 ```toml
 [dependencies]
-swan-macro = "0.1.0"
-swan-common = "0.1.0"  # 必需的运行时依赖
+swan-macro = "0.2"
+swan-common = "0.2"  # 必需的运行时依赖
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
@@ -265,8 +265,8 @@ Swan Macro 依赖 [Swan Common](https://crates.io/crates/swan-common) 提供运�
 
 ```toml
 [dependencies]
-swan-macro = "0.1.0"
-swan-common = "0.1.0"
+swan-macro = "0.2.0"
+swan-common = "0.2.0"
 ```
 
 ## 📄 许可证
