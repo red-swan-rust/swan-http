@@ -32,8 +32,8 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-swan-macro = "0.2"   # Procedural macro component
-swan-common = "0.2"  # Core runtime component
+swan-macro = "0.3"   # Procedural macro component
+swan-common = "0.3"  # Core runtime component
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }

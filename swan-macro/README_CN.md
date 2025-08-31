@@ -23,8 +23,8 @@ Swan Macro 是 Swan HTTP 库的过程宏组件，提供声明式的 HTTP 客户�
 
 ```toml
 [dependencies]
-swan-macro = "0.2"
-swan-common = "0.2"  # 必需的运行时依赖
+swan-macro = "0.3"
+swan-common = "0.3"  # 必需的运行时依赖
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
@@ -201,16 +201,14 @@ impl SwanInterceptor for AuthInterceptor {
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, std::borrow::Cow<'a, [u8]>)> {
-        let request = request.header("Authorization", "Bearer token");
+        let request = request.header("Authorization", "Bearer demo-token-12345");
         Ok((request, std::borrow::Cow::Borrowed(request_body)))
     }
 
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         println!("响应状态: {}", response.status());
         Ok(response)
@@ -261,8 +259,8 @@ Swan Macro 依赖 [Swan Common](https://crates.io/crates/swan-common) 提供运�
 
 ```toml
 [dependencies]
-swan-macro = "0.2"
-swan-common = "0.2"
+swan-macro = "0.3"
+swan-common = "0.3"
 ```
 
 ## 📄 许可证

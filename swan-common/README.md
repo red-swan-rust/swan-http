@@ -22,7 +22,7 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-swan-common = "0.2"
+swan-common = "0.3"
 async-trait = "0.1"
 anyhow = "1.0"
 ```
@@ -54,7 +54,6 @@ impl SwanInterceptor for MyInterceptor {
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         // Zero-copy: only modify request body when needed
         Ok((request, Cow::Borrowed(request_body)))
@@ -63,7 +62,6 @@ impl SwanInterceptor for MyInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         println!("Response status: {}", response.status());
         Ok(response)
@@ -138,8 +136,8 @@ Swan Common is typically used with [Swan Macro](https://crates.io/crates/swan-ma
 
 ```toml
 [dependencies]
-swan-common = "0.2"
-swan-macro = "0.2"
+swan-common = "0.3"
+swan-macro = "0.3"
 ```
 
 ## 📄 License

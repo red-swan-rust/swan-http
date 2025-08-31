@@ -22,7 +22,7 @@ Swan Common 是 Swan HTTP 库的核心组件，提供共享的类型定义、拦
 
 ```toml
 [dependencies]
-swan-common = "0.2"
+swan-common = "0.3"
 async-trait = "0.1"
 anyhow = "1.0"
 ```
@@ -54,7 +54,6 @@ impl SwanInterceptor for MyInterceptor {
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         // 零拷贝：仅在需要时修改请求体
         Ok((request, Cow::Borrowed(request_body)))
@@ -63,7 +62,6 @@ impl SwanInterceptor for MyInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         println!("响应状态: {}", response.status());
         Ok(response)
@@ -138,8 +136,8 @@ Swan Common 通常与 [Swan Macro](https://crates.io/crates/swan-macro) 配合�
 
 ```toml
 [dependencies]
-swan-common = "0.2"
-swan-macro = "0.2"
+swan-common = "0.3"
+swan-macro = "0.3"
 ```
 
 ## 📄 许可证
