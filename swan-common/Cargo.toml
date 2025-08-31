@@ -1,10 +1,10 @@
 [package]
 name = "swan-common"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2024"
 authors = ["Your Name <iwanttobeaprince@gmail.com>"]
 description = "Common utilities and types for the Swan HTTP client library."
-license = "MIT"
+license = "GPL-3.0"
 repository = "https://github.com/red-swan-rust/swan-http.git"
 documentation = "https://docs.rs/swan-http"
 keywords = ["http", "client", "declarative", "rust"]

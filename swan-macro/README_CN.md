@@ -121,47 +121,41 @@ impl ApiClient {
 
 ## 🔄 重试机制
 
-### 重试策略类型
+Swan HTTP 提供智能的方法级重试机制，支持指数退避和固定延迟两种策略。
+
+### 快速开始
 
 ```rust
-// 指数退避重试
+// 📝 最简配置 - 指数重试，3次，基础延迟100ms
 #[get(url = "/api", retry = "exponential(3, 100ms)")]
+
+// 📝 固定延迟 - 3次，每次延迟1秒
+#[get(url = "/api", retry = "fixed(3, 1s)")]
+
+// 📝 详细配置 - 生产环境推荐
 #[get(url = "/api", retry = "exponential(
-    max_attempts=5,
-    base_delay=200ms,
-    max_delay=30s,
-    exponential_base=2.0,
-    jitter_ratio=0.1
-)")]
-
-// 固定延迟重试
-#[get(url = "/api", retry = "fixed(max_attempts=3, delay=1s)")]
-```
-
-### 自动重试条件
-
-- **5xx 服务器错误** (500-599)
-- **429 Too Many Requests** (限流)
-- **408 Request Timeout** (超时)
-- **网络连接错误**
-
-### 幂等性保护
-
-默认只对安全的HTTP方法重试：
-
-```rust
-#[get(url = "/data")]     // ✅ 自动重试
-#[put(url = "/data")]     // ✅ 自动重试  
-#[delete(url = "/data")]  // ✅ 自动重试
-#[post(url = "/data")]    // ❌ 默认不重试 (非幂等)
-
-// 强制重试非幂等方法 (谨慎使用)
-#[post(url = "/idempotent", retry = "exponential(
-    max_attempts=3,
-    base_delay=100ms,
-    idempotent_only=false
+    max_attempts=5,      // 最多5次（含首次）
+    base_delay=200ms,    // 基础延迟200毫秒
+    max_delay=30s,       // 最大延迟30秒
+    jitter_ratio=0.1     // 10%随机抖动
 )")]
 ```
+
+### 语法格式
+
+| 格式 | 示例 | 说明 |
+|------|------|------|
+| **简化语法** | `"exponential(3, 100ms)"` | 快速配置，位置参数 |
+| **完整语法** | `"exponential(max_attempts=3, base_delay=100ms)"` | 明确参数名，推荐生产使用 |
+
+### 重要特性
+
+- **自动重试条件**: 5xx错误、429限流、408超时、网络错误
+- **幂等性保护**: GET/PUT/DELETE自动重试，POST默认不重试
+- **时间单位支持**: `ms`(毫秒)、`s`(秒)
+- **编译时验证**: 配置错误在编译时发现
+
+> 📖 **详细文档**: 查看 [重试机制完整指南](../docs/RETRY_MECHANISM.md) 了解所有参数、最佳实践和故障排除
 
 ## 🌐 动态参数
 

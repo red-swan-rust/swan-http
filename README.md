@@ -102,39 +102,46 @@ async fn main() -> anyhow::Result<()> {
 
 ### 🔄 Retry Mechanism
 
-Swan HTTP provides powerful method-level retry functionality with intelligent exponential backoff algorithms:
+Swan HTTP provides powerful method-level retry functionality with intelligent exponential backoff algorithms.
+
+### Quick Start
 
 ```rust
 impl ApiClient {
-    // Basic exponential retry: max 3 attempts, base delay 100ms
+    // 📝 Simplest config - exponential retry, 3 attempts, 100ms base delay
     #[get(url = "/users/{id}", retry = "exponential(3, 100ms)")]
     async fn get_user(&self, id: u32) -> anyhow::Result<User> {}
     
-    // Detailed configuration: custom all parameters
+    // 📝 Fixed delay - 4 attempts, 500ms each
+    #[get(url = "/stable/service", retry = "fixed(4, 500ms)")]
+    async fn call_stable_service(&self) -> anyhow::Result<Data> {}
+    
+    // 📝 Production config - detailed parameters
     #[get(url = "/external/api", retry = "exponential(
-        max_attempts=5,
-        base_delay=200ms,
-        max_delay=30s,
-        exponential_base=2.0,
-        jitter_ratio=0.1,
-        idempotent_only=true
+        max_attempts=5,      // Max 5 attempts (including initial)
+        base_delay=200ms,    // Base delay 200ms  
+        max_delay=30s,       // Max delay 30s
+        jitter_ratio=0.1     // 10% random jitter
     )")]
     async fn call_external_api(&self) -> anyhow::Result<Data> {}
-    
-    // Fixed delay retry: for stable services
-    #[get(url = "/stable/service", retry = "fixed(max_attempts=4, delay=500ms)")]
-    async fn call_stable_service(&self) -> anyhow::Result<Data> {}
 }
 ```
 
-**Retry Features:**
-- **Smart Retry Conditions**: Automatically retry 5xx errors, 429 rate limiting, 408 timeouts
-- **Idempotency Protection**: Only retry safe GET/PUT/DELETE methods by default
-- **Exponential Backoff**: Avoid server overload with customizable growth rate
-- **Random Jitter**: Prevent thundering herd effect by spreading retry times
-- **Flexible Configuration**: Support both simplified and detailed configuration syntax
+### Syntax Formats
 
-For detailed retry mechanism documentation, see: [docs/retry_mechanism.md](docs/retry_mechanism.md)
+| Format | Example | Use Case |
+|--------|---------|----------|
+| **Simplified** | `"exponential(3, 100ms)"` | Quick config, positional args |
+| **Complete** | `"exponential(max_attempts=3, base_delay=100ms)"` | Named parameters, production use |
+
+### Key Features
+
+- **Auto retry conditions**: 5xx errors, 429 rate limiting, 408 timeouts, network errors
+- **Idempotency protection**: GET/PUT/DELETE auto retry, POST default no retry
+- **Time unit support**: `ms`(milliseconds), `s`(seconds)
+- **Compile-time validation**: Configuration errors caught at compile time
+
+> 📖 **Complete Guide**: See [Retry Mechanism Documentation](docs/RETRY_MECHANISM_EN.md) for all parameters, best practices, and troubleshooting
 
 ### Interceptors
 
@@ -275,7 +282,7 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
-For detailed state injection documentation, see: [docs/STATE_INJECTION.md](docs/STATE_INJECTION.md)
+For detailed state injection documentation, see: [docs/STATE_INJECTION_EN.md](docs/STATE_INJECTION_EN.md)
 
 ### Supported HTTP Methods
 
@@ -423,16 +430,24 @@ cargo run --example simple_retry_test     # 🔄 Simple retry functionality test
 cargo run --example retry_integration_test # 🔄 Retry mechanism integration test
 ```
 
-## 📖 API Documentation
+## 📖 Documentation
 
-### Online Documentation
+### 📚 User Guides
+
+- **[API Reference](docs/API_EN.md)** - Complete API documentation for all macros and types
+- **[Usage Guide](docs/USAGE_GUIDE_EN.md)** - Comprehensive usage examples and best practices
+- **[Retry Mechanism](docs/RETRY_MECHANISM_EN.md)** - Advanced retry configuration and strategies
+- **[Dynamic Parameters](docs/DYNAMIC_PARAMS_EN.md)** - URL and header parameter injection
+- **[State Injection](docs/STATE_INJECTION_EN.md)** - Application state management in interceptors
+
+### 🌐 Online API Documentation
 
 - **[swan-macro docs](https://docs.rs/swan-macro)** - Procedural macro API documentation
 - **[swan-common docs](https://docs.rs/swan-common)** - Core types and interceptor API documentation
 
-### Local Documentation
+### 💻 Local Documentation
 
-Detailed API documentation can be generated and viewed with the following commands:
+Generate and view detailed API documentation:
 
 ```bash
 # Generate documentation for all components

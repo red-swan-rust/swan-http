@@ -102,39 +102,46 @@ async fn main() -> anyhow::Result<()> {
 
 ### 🔄 重试机制
 
-Swan HTTP 提供强大的方法级重试功能，支持智能的指数退避算法：
+Swan HTTP 提供智能的方法级重试机制，支持指数退避和固定延迟两种策略。
+
+### 快速开始
 
 ```rust
 impl ApiClient {
-    // 基础指数重试：最多3次，基础延迟100ms
+    // 📝 最简配置 - 指数重试，3次，基础延迟100ms
     #[get(url = "/users/{id}", retry = "exponential(3, 100ms)")]
     async fn get_user(&self, id: u32) -> anyhow::Result<User> {}
     
-    // 详细配置：自定义所有参数
+    // 📝 固定延迟 - 4次，每次500ms
+    #[get(url = "/stable/service", retry = "fixed(4, 500ms)")]
+    async fn call_stable_service(&self) -> anyhow::Result<Data> {}
+    
+    // 📝 生产环境配置 - 详细参数
     #[get(url = "/external/api", retry = "exponential(
-        max_attempts=5,
-        base_delay=200ms,
-        max_delay=30s,
-        exponential_base=2.0,
-        jitter_ratio=0.1,
-        idempotent_only=true
+        max_attempts=5,      // 最多5次（含首次）
+        base_delay=200ms,    // 基础延迟200毫秒
+        max_delay=30s,       // 最大延迟30秒
+        jitter_ratio=0.1     // 10%随机抖动
     )")]
     async fn call_external_api(&self) -> anyhow::Result<Data> {}
-    
-    // 固定延迟重试：适用于稳定服务
-    #[get(url = "/stable/service", retry = "fixed(max_attempts=4, delay=500ms)")]
-    async fn call_stable_service(&self) -> anyhow::Result<Data> {}
 }
 ```
 
-**重试特性：**
-- **智能重试条件**: 自动重试 5xx 错误、429 限流、408 超时
-- **幂等性保护**: 默认只重试安全的 GET/PUT/DELETE 方法
-- **指数退避**: 避免服务器过载，支持自定义增长速度
-- **随机抖动**: 防止雷群效应，分散重试时间
-- **灵活配置**: 支持简化和详细两种配置语法
+### 语法格式
 
-详细的重试机制文档请参考: [docs/retry_mechanism.md](docs/retry_mechanism.md)
+| 格式 | 示例 | 适用场景 |
+|------|------|----------|
+| **简化语法** | `"exponential(3, 100ms)"` | 快速配置，位置参数 |
+| **完整语法** | `"exponential(max_attempts=3, base_delay=100ms)"` | 明确参数名，生产环境推荐 |
+
+### 核心特性
+
+- **自动重试条件**: 5xx错误、429限流、408超时、网络错误
+- **幂等性保护**: GET/PUT/DELETE自动重试，POST默认不重试  
+- **时间单位支持**: `ms`(毫秒)、`s`(秒)
+- **编译时验证**: 配置错误在编译时发现
+
+> 📖 **完整指南**: 查看 [重试机制详细文档](docs/RETRY_MECHANISM.md) 了解所有参数、最佳实践和故障排除
 
 ### 拦截器
 
@@ -423,16 +430,24 @@ cargo run --example simple_retry_test     # 🔄 简单重试功能测试
 cargo run --example retry_integration_test # 🔄 重试机制集成测试
 ```
 
-## 📖 API 文档
+## 📖 文档
 
-### 在线文档
+### 📚 用户指南
+
+- **[API 参考](docs/API.md)** - 完整的宏和类型 API 文档
+- **[使用指南](docs/USAGE_GUIDE.md)** - 详细的使用示例和最佳实践
+- **[重试机制](docs/RETRY_MECHANISM.md)** - 高级重试配置和策略
+- **[动态参数](docs/DYNAMIC_PARAMS.md)** - URL 和头部参数注入
+- **[状态注入](docs/STATE_INJECTION.md)** - 拦截器中的应用状态管理
+
+### 🌐 在线 API 文档
 
 - **[swan-macro 文档](https://docs.rs/swan-macro)** - 过程宏 API 文档
 - **[swan-common 文档](https://docs.rs/swan-common)** - 核心类型和拦截器 API 文档
 
-### 本地文档
+### 💻 本地文档
 
-详细的 API 文档可以通过以下命令生成并查看：
+生成并查看详细的 API 文档：
 
 ```bash
 # 生成所有组件的文档

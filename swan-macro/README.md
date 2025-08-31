@@ -121,47 +121,41 @@ impl ApiClient {
 
 ## 🔄 Retry Mechanism
 
-### Retry Strategy Types
+Swan HTTP provides intelligent method-level retry mechanisms with exponential backoff and fixed delay strategies.
+
+### Quick Start
 
 ```rust
-// Exponential backoff retry
+// 📝 Simplest config - exponential retry, 3 attempts, 100ms base delay
 #[get(url = "/api", retry = "exponential(3, 100ms)")]
+
+// 📝 Fixed delay - 3 attempts, 1 second each
+#[get(url = "/api", retry = "fixed(3, 1s)")]
+
+// 📝 Detailed config - recommended for production
 #[get(url = "/api", retry = "exponential(
-    max_attempts=5,
-    base_delay=200ms,
-    max_delay=30s,
-    exponential_base=2.0,
-    jitter_ratio=0.1
-)")]
-
-// Fixed delay retry
-#[get(url = "/api", retry = "fixed(max_attempts=3, delay=1s)")]
-```
-
-### Automatic Retry Conditions
-
-- **5xx Server Errors** (500-599)
-- **429 Too Many Requests** (rate limiting)
-- **408 Request Timeout** (timeout)
-- **Network Connection Errors**
-
-### Idempotency Protection
-
-By default, only safe HTTP methods are retried:
-
-```rust
-#[get(url = "/data")]     // ✅ Auto retry
-#[put(url = "/data")]     // ✅ Auto retry  
-#[delete(url = "/data")]  // ✅ Auto retry
-#[post(url = "/data")]    // ❌ No retry by default (non-idempotent)
-
-// Force retry for non-idempotent methods (use with caution)
-#[post(url = "/idempotent", retry = "exponential(
-    max_attempts=3,
-    base_delay=100ms,
-    idempotent_only=false
+    max_attempts=5,      // Max 5 attempts (including initial)
+    base_delay=200ms,    // Base delay 200ms
+    max_delay=30s,       // Max delay 30s
+    jitter_ratio=0.1     // 10% random jitter
 )")]
 ```
+
+### Syntax Formats
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| **Simplified** | `"exponential(3, 100ms)"` | Quick config with positional args |
+| **Complete** | `"exponential(max_attempts=3, base_delay=100ms)"` | Named parameters, recommended for production |
+
+### Key Features
+
+- **Auto retry conditions**: 5xx errors, 429 rate limiting, 408 timeout, network errors
+- **Idempotency protection**: GET/PUT/DELETE auto retry, POST default no retry
+- **Time unit support**: `ms`(milliseconds), `s`(seconds)
+- **Compile-time validation**: Configuration errors caught at compile time
+
+> 📖 **Detailed Documentation**: See [Complete Retry Guide](../docs/RETRY_MECHANISM_EN.md) for all parameters, best practices, and troubleshooting
 
 ## 🌐 Dynamic Parameters
 
