@@ -1,6 +1,5 @@
 use serde::Deserialize;
 use swan_macro::{http_client, get};
-use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::sync::{Arc, RwLock};
@@ -114,7 +113,7 @@ struct ConstructionRecord {
 struct EnterpriseAuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<EnterpriseState> for EnterpriseAuthInterceptor {
+impl SwanStatefulInterceptor<EnterpriseState> for EnterpriseAuthInterceptor {
     async fn before_request<'a>(
         &self,
         mut request: reqwest::RequestBuilder,
@@ -189,12 +188,11 @@ impl SwanInterceptor<EnterpriseState> for EnterpriseAuthInterceptor {
 struct SimpleAuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for SimpleAuthInterceptor {
+impl SwanInterceptor for SimpleAuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         debug!("🔐 Simple Auth: 添加基础认证");
         let request = request.header("Authorization", "Bearer demo_token");
@@ -204,7 +202,6 @@ impl SwanInterceptor<()> for SimpleAuthInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         info!("✅ Simple Auth: 响应状态 {}", response.status());
         Ok(response)

@@ -33,12 +33,11 @@ impl AuthInterceptor {
 }
 
 #[async_trait]
-impl SwanInterceptor<()> for AuthInterceptor {
+impl SwanInterceptor for AuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let request = request.header("Authorization", format!("Bearer {}", self.token));
         Ok((request, Cow::Borrowed(request_body)))
@@ -47,7 +46,6 @@ impl SwanInterceptor<()> for AuthInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         info!("请求完成，状态码: {}", response.status());
         Ok(response)

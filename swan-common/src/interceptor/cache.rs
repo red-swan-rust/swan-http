@@ -86,12 +86,11 @@ mod tests {
     struct TestInterceptor;
 
     #[async_trait]
-    impl SwanInterceptor<()> for TestInterceptor {
+    impl SwanInterceptor for TestInterceptor {
         async fn before_request<'a>(
             &self,
             request: reqwest::RequestBuilder,
             request_body: &'a [u8],
-            _state: Option<&()>,
         ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
             CREATION_COUNT.fetch_add(1, Ordering::SeqCst);
             Ok((request, Cow::Borrowed(request_body)))
@@ -100,7 +99,6 @@ mod tests {
         async fn after_response(
             &self,
             response: reqwest::Response,
-            _state: Option<&()>,
         ) -> anyhow::Result<reqwest::Response> {
             Ok(response)
         }

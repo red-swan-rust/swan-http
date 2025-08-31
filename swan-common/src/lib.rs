@@ -10,7 +10,7 @@ pub mod interceptor;
 // Re-export commonly used types and traits for convenience
 pub use types::{HttpMethod, ContentType, HandlerArgs, HttpClientArgs, RetryPolicy, RetryConfig};
 pub use parsing::{parse_handler_args, parse_http_client_args};
-pub use interceptor::{SwanInterceptor, InterceptorCache, NoOpInterceptor, ClientStateMarker};
+pub use interceptor::{SwanInterceptor, SwanStatefulInterceptor, InterceptorCache, NoOpInterceptor, ClientStateMarker};
 
 #[cfg(test)]
 mod integration_tests {

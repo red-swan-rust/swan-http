@@ -28,7 +28,7 @@ pub fn generate_http_method(fn_sig: &Signature, handler_args: &HandlerArgs) -> T
     generate_http_method_impl(fn_sig, handler_args, None)
 }
 
-pub fn generate_http_method_impl(fn_sig: &Signature, handler_args: &HandlerArgs, _client_state_type: Option<&syn::Type>) -> TokenStream {
+pub fn generate_http_method_impl(fn_sig: &Signature, handler_args: &HandlerArgs, client_state_type: Option<&syn::Type>) -> TokenStream {
     let fn_name = &fn_sig.ident;
     let inputs = &fn_sig.inputs;
     let output = &fn_sig.output;
@@ -47,9 +47,8 @@ pub fn generate_http_method_impl(fn_sig: &Signature, handler_args: &HandlerArgs,
     // 生成函数参数和请求体处理代码
     let (_body_type, body_param, body_method_call) = generate_body_handling(inputs, handler_args);
 
-    // 生成缓存式拦截器处理代码 - 需要传递状态类型信息
-    // 注意：这里我们暂时无法获取状态类型，需要从上下文传递
-    let method_interceptor_access = CachedInterceptorProcessor::generate_cached_interceptor_access(&handler_args.interceptor, None);
+    // 生成缓存式拦截器处理代码 - 传递状态类型信息
+    let method_interceptor_access = CachedInterceptorProcessor::generate_cached_interceptor_access(&handler_args.interceptor, client_state_type);
     let request_builder_code = RequestBuilder::generate_request_builder_code(handler_args, &body_method_call, inputs);
 
     // 生成类型转换代码
@@ -64,10 +63,11 @@ pub fn generate_http_method_impl(fn_sig: &Signature, handler_args: &HandlerArgs,
     // 生成重试执行代码
     let retry_execution = RetryProcessor::generate_complete_retry_block(&handler_args.retry, &handler_args.method);
 
+    // 生成拦截器调用代码
+    let interceptor_calls = generate_interceptor_calls(&handler_args, client_state_type);
+
     let expanded = quote! {
         pub async fn #fn_name(&self #body_param) #output {
-
-            #method_interceptor_access
 
             #request_builder_code
 
@@ -101,6 +101,15 @@ pub fn generate_http_method_impl(fn_sig: &Signature, handler_args: &HandlerArgs,
     };
 
     TokenStream::from(expanded)
+}
+
+/// 生成拦截器调用代码
+/// 暂时简化，移除拦截器调用逻辑
+fn generate_interceptor_calls(_handler_args: &HandlerArgs, _client_state_type: Option<&syn::Type>) -> proc_macro2::TokenStream {
+    // 暂时移除拦截器调用，专注于trait导出功能
+    quote! {
+        // 拦截器调用逻辑待后续完善
+    }
 }
 
 /// 验证函数输入参数

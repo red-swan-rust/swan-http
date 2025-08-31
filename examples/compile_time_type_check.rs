@@ -3,7 +3,6 @@
 
 use serde::Deserialize;
 use swan_macro::{http_client, get};
-use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use log::{info, warn, error, debug};
@@ -24,12 +23,11 @@ struct AppState {
 struct StatelessInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for StatelessInterceptor {
+impl SwanInterceptor for StatelessInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         info!("✅ 无状态拦截器");
         Ok((request, Cow::Borrowed(request_body)))
@@ -38,7 +36,6 @@ impl SwanInterceptor<()> for StatelessInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }
@@ -49,7 +46,7 @@ impl SwanInterceptor<()> for StatelessInterceptor {
 struct StatefulInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<AppState> for StatefulInterceptor {
+impl SwanStatefulInterceptor<AppState> for StatefulInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,

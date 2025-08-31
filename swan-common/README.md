@@ -44,7 +44,6 @@ let content_type = ContentType::Json;
 use async_trait::async_trait;
 use swan_common::SwanInterceptor;
 use std::borrow::Cow;
-use std::any::Any;
 
 #[derive(Default)]
 struct MyInterceptor;
@@ -55,7 +54,7 @@ impl SwanInterceptor for MyInterceptor {
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         // Zero-copy: only modify request body when needed
         Ok((request, Cow::Borrowed(request_body)))
@@ -64,7 +63,7 @@ impl SwanInterceptor for MyInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         println!("Response status: {}", response.status());
         Ok(response)

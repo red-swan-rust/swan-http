@@ -462,7 +462,7 @@ use log::debug;
 
 // Add debug logging in interceptor
 #[async_trait]
-impl SwanInterceptor<()> for DebugInterceptor {
+impl SwanInterceptor for DebugInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
@@ -514,7 +514,7 @@ Dynamic parameters are fully compatible with interceptors:
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for AuthInterceptor {
+impl SwanInterceptor for AuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,

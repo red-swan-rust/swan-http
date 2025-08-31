@@ -1,7 +1,6 @@
 use std::time::Instant;
 use serde::Deserialize;
 use swan_macro::{http_client, get};
-use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::any::Any;
@@ -31,12 +30,11 @@ impl BasicClient {
 struct NoOpInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for NoOpInterceptor {
+impl SwanInterceptor for NoOpInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         Ok((request, Cow::Borrowed(request_body)))
     }
@@ -44,7 +42,6 @@ impl SwanInterceptor<()> for NoOpInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }
@@ -84,7 +81,7 @@ impl AppState {
 struct StateAwareInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<AppState> for StateAwareInterceptor {
+impl SwanStatefulInterceptor<AppState> for StateAwareInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,

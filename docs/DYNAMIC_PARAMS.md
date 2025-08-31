@@ -460,7 +460,7 @@ use log::debug;
 
 // 在拦截器中添加调试日志
 #[async_trait]
-impl SwanInterceptor<()> for DebugInterceptor {
+impl SwanInterceptor for DebugInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
@@ -512,7 +512,7 @@ async fn main() -> anyhow::Result<()> {
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for AuthInterceptor {
+impl SwanInterceptor for AuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,

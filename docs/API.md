@@ -124,8 +124,8 @@ pub trait SwanInterceptor<State> {
 
 #### 状态类型
 
-- 对于无状态拦截器：使用 `SwanInterceptor<()>`
-- 对于有状态拦截器：使用 `SwanInterceptor<YourStateType>`，提供类型安全的状态访问
+- 对于无状态拦截器：使用 `SwanInterceptor`
+- 对于有状态拦截器：使用 `SwanStatefulInterceptor<YourStateType>`，提供类型安全的状态访问
 
 ## 使用模式
 
@@ -148,11 +148,11 @@ impl SimpleClient {
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for AuthInterceptor {
-    async fn before_request(&self, request: reqwest::RequestBuilder, body: &Vec<u8>, _state: Option<&()>) 
-        -> anyhow::Result<(reqwest::RequestBuilder, Vec<u8>)> {
+impl SwanInterceptor for AuthInterceptor {
+    async fn before_request<'a>(&self, request: reqwest::RequestBuilder, request_body: &'a [u8], _state: Option<&()>) 
+        -> anyhow::Result<(reqwest::RequestBuilder, std::borrow::Cow<'a, [u8]>)> {
         let authenticated_request = request.header("Authorization", "Bearer token");
-        Ok((authenticated_request, body.clone()))
+        Ok((authenticated_request, std::borrow::Cow::Borrowed(request_body)))
     }
     
     async fn after_response(&self, response: reqwest::Response, _state: Option<&()>) 

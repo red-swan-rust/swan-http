@@ -151,18 +151,16 @@ impl ApiClient {
 use async_trait::async_trait;
 use swan_common::SwanInterceptor;
 use std::borrow::Cow;
-use std::any::Any;
 
 #[derive(Default)]
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for AuthInterceptor {
+impl SwanInterceptor for AuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>, // 👈 类型安全的无状态
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let modified_request = request.header("Authorization", "Bearer token");
         // 零拷贝优化：直接借用请求体，避免克隆
@@ -172,7 +170,6 @@ impl SwanInterceptor<()> for AuthInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>, // 👈 类型安全的无状态
     ) -> anyhow::Result<reqwest::Response> {
         println!("响应状态: {}", response.status());
         Ok(response)
@@ -197,6 +194,9 @@ Swan HTTP 支持类似 Axum 的应用状态管理，适用于依赖注入场景�
 ```rust
 use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
+use async_trait::async_trait;
+use swan_common::SwanStatefulInterceptor;
+use std::borrow::Cow;
 
 // 1. 定义应用状态
 #[derive(Clone)]
@@ -226,7 +226,7 @@ impl AppState {
 struct StateAwareInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<AppState> for StateAwareInterceptor {
+impl SwanStatefulInterceptor<AppState> for StateAwareInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
@@ -248,7 +248,7 @@ impl SwanInterceptor<AppState> for StateAwareInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&AppState>,
     ) -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }

@@ -41,7 +41,7 @@ pub fn generate_http_client_impl(
         syn::parse_quote! {{
             client: reqwest::Client,
             base_url: String,
-            global_interceptor: Option<std::sync::Arc<dyn swan_common::SwanInterceptor<#state_type> + Send + Sync>>,
+            global_interceptor: Option<std::sync::Arc<dyn swan_common::SwanStatefulInterceptor<#state_type> + Send + Sync>>,
             interceptor_cache: std::sync::Mutex<swan_common::InterceptorCache>,
             state: Option<#state_type>,
         }}
@@ -49,7 +49,7 @@ pub fn generate_http_client_impl(
         syn::parse_quote! {{
             client: reqwest::Client,
             base_url: String,
-            global_interceptor: Option<std::sync::Arc<dyn swan_common::SwanInterceptor<()> + Send + Sync>>,
+            global_interceptor: Option<std::sync::Arc<dyn swan_common::SwanInterceptor + Send + Sync>>,
             interceptor_cache: std::sync::Mutex<swan_common::InterceptorCache>,
             state: Option<()>,
         }}
@@ -57,7 +57,6 @@ pub fn generate_http_client_impl(
         syn::parse_quote! {{
             client: reqwest::Client,
             base_url: String,
-            global_interceptor: Option<std::sync::Arc<()>>, // 无拦截器的占位
             interceptor_cache: std::sync::Mutex<swan_common::InterceptorCache>,
             state: Option<()>,
         }}
@@ -67,18 +66,18 @@ pub fn generate_http_client_impl(
 
     let interceptor_init = if let Some(interceptor_path) = interceptor {
         if let Some(state_type) = &args.state {
-            // 有状态：创建 SwanInterceptor<StateType>
+            // 有状态：创建 SwanStatefulInterceptor<StateType>
             quote! { 
-                Some(std::sync::Arc::new(<#interceptor_path as Default>::default()) as std::sync::Arc<dyn swan_common::SwanInterceptor<#state_type> + Send + Sync>)
+                global_interceptor: Some(std::sync::Arc::new(<#interceptor_path as Default>::default()) as std::sync::Arc<dyn swan_common::SwanStatefulInterceptor<#state_type> + Send + Sync>),
             }
         } else {
-            // 无状态：创建 SwanInterceptor<()>
+            // 无状态：创建 SwanInterceptor
             quote! { 
-                Some(std::sync::Arc::new(<#interceptor_path as Default>::default()) as std::sync::Arc<dyn swan_common::SwanInterceptor<()> + Send + Sync>)
+                global_interceptor: Some(std::sync::Arc::new(<#interceptor_path as Default>::default()) as std::sync::Arc<dyn swan_common::SwanInterceptor + Send + Sync>),
             }
         }
     } else {
-        quote! { None }
+        quote! {}  // 无拦截器时不生成global_interceptor字段初始化
     };
 
     // 生成state字段初始化和with_state方法
@@ -116,7 +115,25 @@ pub fn generate_http_client_impl(
         (quote! { () }, quote! { false })
     };
 
+    // 条件性trait导出 - 关键功能！
+    let conditional_trait_export = if args.state.is_some() && args.interceptor.is_some() {
+        // 有状态时只导出SwanStatefulInterceptor
+        quote! {
+            pub use swan_common::SwanStatefulInterceptor;
+        }
+    } else if args.interceptor.is_some() {
+        // 无状态时只导出SwanInterceptor
+        quote! {
+            pub use swan_common::SwanInterceptor;
+        }
+    } else {
+        // 无拦截器时不导出
+        quote! {}
+    };
+
     let expanded = quote! {
+        #conditional_trait_export
+
         #input
 
         impl #struct_name {
@@ -125,7 +142,7 @@ pub fn generate_http_client_impl(
                 #struct_name {
                     client: reqwest::Client::new(),
                     base_url: #base_url.to_string(),
-                    global_interceptor: #interceptor_init,
+                    #interceptor_init
                     interceptor_cache: std::sync::Mutex::new(swan_common::InterceptorCache::new()),
                     #state_field_init
                 }

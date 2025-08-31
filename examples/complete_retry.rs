@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use swan_macro::{http_client, get, post, put, delete};
 use std::time::Instant;
 use async_trait::async_trait;
-use swan_common::SwanInterceptor;
 use std::borrow::Cow;
 use std::any::Any;
 use log::{info, warn, error, debug};
@@ -36,12 +35,11 @@ struct CreatePostRequest {
 struct RetryMonitoringInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for RetryMonitoringInterceptor {
+impl SwanInterceptor for RetryMonitoringInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         debug!("🚀 发送请求到: {}", request.try_clone().unwrap().build().unwrap().url());
         Ok((request, Cow::Borrowed(request_body)))
@@ -50,7 +48,6 @@ impl SwanInterceptor<()> for RetryMonitoringInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         let status = response.status();
         if status.is_success() {

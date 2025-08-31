@@ -151,18 +151,16 @@ Interceptors allow you to perform custom processing before sending requests and 
 use async_trait::async_trait;
 use swan_common::SwanInterceptor;
 use std::borrow::Cow;
-use std::any::Any;
 
 #[derive(Default)]
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for AuthInterceptor {
+impl SwanInterceptor for AuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>, // 👈 Type-safe stateless
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let modified_request = request.header("Authorization", "Bearer token");
         // Zero-copy optimization: directly borrow request body to avoid cloning
@@ -172,7 +170,6 @@ impl SwanInterceptor<()> for AuthInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>, // 👈 Type-safe stateless
     ) -> anyhow::Result<reqwest::Response> {
         println!("Response status: {}", response.status());
         Ok(response)
@@ -197,6 +194,9 @@ Swan HTTP supports Axum-like application state management for dependency injecti
 ```rust
 use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
+use async_trait::async_trait;
+use swan_common::SwanStatefulInterceptor;
+use std::borrow::Cow;
 
 // 1. Define application state
 #[derive(Clone)]
@@ -226,7 +226,7 @@ impl AppState {
 struct StateAwareInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<AppState> for StateAwareInterceptor {
+impl SwanStatefulInterceptor<AppState> for StateAwareInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,

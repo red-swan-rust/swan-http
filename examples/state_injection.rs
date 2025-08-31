@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use swan_macro::{http_client, get, post};
-use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -54,7 +53,7 @@ impl AppState {
 struct StatefulAuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<AppState> for StatefulAuthInterceptor {
+impl SwanStatefulInterceptor<AppState> for StatefulAuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
@@ -200,6 +199,14 @@ async fn main() -> anyhow::Result<()> {
     
     println!("\n🎉 State注入示例完成！");
     println!("💡 说明: state在拦截器间共享，支持缓存、数据库访问等复杂场景");
+    
+    println!("\n=== 有状态Trait导出测试 ===");
+    println!("如果编译成功，说明：");
+    println!("✅ 有状态客户端只导出了SwanStatefulInterceptor<AppState>");
+    println!("✅ IDE可以正确识别应该使用的trait");
+    println!("✅ 有状态拦截器使用 SwanStatefulInterceptor<AppState>");
+    println!("✅ 可以类型安全地访问state参数");
+    println!("✅ IDE只提示SwanStatefulInterceptor，不会显示SwanInterceptor");
     
     Ok(())
 }

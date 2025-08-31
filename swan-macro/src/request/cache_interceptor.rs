@@ -19,20 +19,37 @@ impl CachedInterceptorProcessor {
     /// 生成的拦截器获取代码
     pub fn generate_cached_interceptor_access(
         interceptor_path: &Option<Path>, 
-        _state_type: Option<&syn::Type>
+        state_type: Option<&syn::Type>
     ) -> proc_macro2::TokenStream {
         match interceptor_path {
             Some(path) => {
-                quote! {
-                    let method_interceptor = {
-                        let mut cache = self.interceptor_cache.lock().unwrap();
-                        Some(cache.get_or_create::<#path>())
-                    };
+                if let Some(state_type) = state_type {
+                    // 有状态拦截器
+                    quote! {
+                        let method_interceptor = {
+                            let mut cache = self.interceptor_cache.lock().unwrap();
+                            Some(cache.get_or_create::<#path>() as std::sync::Arc<dyn swan_common::SwanStatefulInterceptor<#state_type> + Send + Sync>)
+                        };
+                    }
+                } else {
+                    // 无状态拦截器
+                    quote! {
+                        let method_interceptor = {
+                            let mut cache = self.interceptor_cache.lock().unwrap();
+                            Some(cache.get_or_create::<#path>() as std::sync::Arc<dyn swan_common::SwanInterceptor + Send + Sync>)
+                        };
+                    }
                 }
             },
             None => {
-                quote! {
-                    let method_interceptor: Option<std::sync::Arc<()>> = None;
+                if state_type.is_some() {
+                    quote! {
+                        let method_interceptor: Option<std::sync::Arc<dyn swan_common::SwanStatefulInterceptor<_> + Send + Sync>> = None;
+                    }
+                } else {
+                    quote! {
+                        let method_interceptor: Option<std::sync::Arc<dyn swan_common::SwanInterceptor + Send + Sync>> = None;
+                    }
                 }
             },
         }

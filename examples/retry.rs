@@ -1,7 +1,6 @@
 use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use swan_macro::{http_client, get, post, put, delete};
-use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::any::Any;
@@ -83,12 +82,11 @@ impl UnstableInterceptor {
 }
 
 #[async_trait]
-impl SwanInterceptor<()> for UnstableInterceptor {
+impl SwanInterceptor for UnstableInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         // 模拟网络不稳定
         if fastrand::f64() < self.failure_rate {
@@ -100,7 +98,6 @@ impl SwanInterceptor<()> for UnstableInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         // 模拟响应处理不稳定
         if fastrand::f64() < self.failure_rate * 0.5 {

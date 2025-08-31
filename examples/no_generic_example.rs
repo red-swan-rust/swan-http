@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use swan_macro::{http_client, get};
-use swan_common::SwanInterceptor;
+// SwanInterceptor 会由宏自动导出
 use async_trait::async_trait;
 use std::borrow::Cow;
 use log::{info, debug, error};
@@ -17,12 +17,11 @@ struct User {
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for AuthInterceptor {  // 👈 没有泛型！使用默认的<()>
+impl SwanInterceptor for AuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,  // 👈 默认状态类型是()
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         debug!("🔐 AuthInterceptor: 添加认证头部");
         let modified_request = request.header("Authorization", "Bearer demo-token-12345");
@@ -32,7 +31,6 @@ impl SwanInterceptor for AuthInterceptor {  // 👈 没有泛型！使用默认�
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,  // 👈 默认状态类型是()
     ) -> anyhow::Result<reqwest::Response> {
         debug!("🔐 AuthInterceptor: 响应状态 {}", response.status());
         Ok(response)
@@ -44,12 +42,11 @@ impl SwanInterceptor for AuthInterceptor {  // 👈 没有泛型！使用默认�
 struct LoggingInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for LoggingInterceptor {  // 👈 没有泛型！
+impl SwanInterceptor for LoggingInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         info!("📝 LoggingInterceptor: 记录请求，请求体大小: {} 字节", request_body.len());
         Ok((request, Cow::Borrowed(request_body)))
@@ -58,7 +55,6 @@ impl SwanInterceptor for LoggingInterceptor {  // 👈 没有泛型！
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         info!("📝 LoggingInterceptor: 响应状态: {}", response.status());
         Ok(response)
@@ -85,7 +81,7 @@ async fn main() -> anyhow::Result<()> {
     
     println!("=== Swan HTTP 无泛型拦截器示例 ===\n");
     println!("💡 演示功能：");
-    println!("   - SwanInterceptor 不写泛型（使用默认的<()>）");
+    println!("   - SwanInterceptor 不写泛型（无状态拦截器）");
     println!("   - 类型安全的无状态拦截器");
     println!("   - 使用log库进行日志输出\n");
 
@@ -106,10 +102,9 @@ async fn main() -> anyhow::Result<()> {
     }
 
     println!("\n🎯 关键说明：");
-    println!("✅ SwanInterceptor 不需要写<()>泛型");
-    println!("✅ 编译器自动使用默认的State = ()");
-    println!("✅ _state参数类型是Option<&()>");
-    println!("✅ 与SwanInterceptor<()>完全等价");
+    println!("✅ 无状态拦截器使用 SwanInterceptor");
+    println!("✅ 有状态拦截器使用 SwanStatefulInterceptor<State>");
+    println!("✅ IDE只会提示对应的trait，避免混淆");
     
     Ok(())
 }

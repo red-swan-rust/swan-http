@@ -269,14 +269,14 @@ async fn before_request<'a>(
     &self,
     request: reqwest::RequestBuilder,
     request_body: &'a [u8],
-    context: Option<&(dyn Any + Send + Sync)>,
+    state: Option<&AppState>,
 ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
     let mut request = request;
     
-    match context.and_then(|ctx| ctx.downcast_ref::<AppState>()) {
-        Some(state) => {
+    match state {
+        Some(app_state) => {
             // Processing logic when state exists
-            match state.get_auth_token().await {
+            match app_state.get_auth_token().await {
                 Some(token) => {
                     request = request.header("Authorization", format!("Bearer {}", token));
                 }

@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use swan_macro::{http_client, get, post, put, delete};
-use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::any::Any;
@@ -46,12 +45,11 @@ struct SearchResult {
 struct LoggingInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for LoggingInterceptor {
+impl SwanInterceptor for LoggingInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         debug!("📝 发送请求...");
         Ok((request, Cow::Borrowed(request_body)))
@@ -60,7 +58,6 @@ impl SwanInterceptor<()> for LoggingInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         info!("✅ 收到响应: {}", response.status());
         Ok(response)

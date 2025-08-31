@@ -201,7 +201,7 @@ impl SwanInterceptor for AuthInterceptor {
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _context: Option<&(dyn std::any::Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, std::borrow::Cow<'a, [u8]>)> {
         let request = request.header("Authorization", "Bearer token");
         Ok((request, std::borrow::Cow::Borrowed(request_body)))
@@ -210,7 +210,7 @@ impl SwanInterceptor for AuthInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn std::any::Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         println!("Response status: {}", response.status());
         Ok(response)

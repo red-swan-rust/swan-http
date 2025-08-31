@@ -1,6 +1,5 @@
 use serde::Deserialize;
 use swan_macro::{http_client, get};
-use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use log::{info, warn, error, debug};
@@ -17,12 +16,11 @@ struct User {
 struct ZeroCostInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for ZeroCostInterceptor {
+impl SwanInterceptor for ZeroCostInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         // 零开销：直接传递，无额外分配
         Ok((request, Cow::Borrowed(request_body)))
@@ -31,7 +29,6 @@ impl SwanInterceptor<()> for ZeroCostInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         // 零开销：直接传递
         Ok(response)

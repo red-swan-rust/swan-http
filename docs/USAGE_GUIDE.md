@@ -143,18 +143,18 @@ struct AuthInterceptor {
 }
 
 #[async_trait]
-impl SwanInterceptor<()> for AuthInterceptor {
-    async fn before_request(
+impl SwanInterceptor for AuthInterceptor {
+    async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
-        request_body: &Vec<u8>,
+        request_body: &'a [u8],
         _state: Option<&()>,
-    ) -> anyhow::Result<(reqwest::RequestBuilder, Vec<u8>)> {
+    ) -> anyhow::Result<(reqwest::RequestBuilder, std::borrow::Cow<'a, [u8]>)> {
         let authenticated_request = request.header(
             "Authorization",
             format!("Bearer {}", self.token)
         );
-        Ok((authenticated_request, request_body.clone()))
+        Ok((authenticated_request, std::borrow::Cow::Borrowed(request_body)))
     }
 
     async fn after_response(
@@ -274,15 +274,15 @@ async fn example() -> anyhow::Result<()> {
 struct RetryInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for RetryInterceptor {
+impl SwanInterceptor for RetryInterceptor {
     // 只处理重试逻辑，不做其他事情
-    async fn before_request(
+    async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
-        request_body: &Vec<u8>,
+        request_body: &'a [u8],
         _state: Option<&()>,
-    ) -> anyhow::Result<(reqwest::RequestBuilder, Vec<u8>)> {
-        Ok((request, request_body.clone()))
+    ) -> anyhow::Result<(reqwest::RequestBuilder, std::borrow::Cow<'a, [u8]>)> {
+        Ok((request, std::borrow::Cow::Borrowed(request_body)))
     }
 
     async fn after_response(

@@ -61,6 +61,7 @@ name = "no_generic_example"
 path = "no_generic_example.rs"
 
 
+
 [dependencies]
 swan-common = { path = "../swan-common" }
 swan-macro = { path = "../swan-macro" }
