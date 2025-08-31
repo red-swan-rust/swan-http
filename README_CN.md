@@ -162,7 +162,7 @@ impl SwanInterceptor for AuthInterceptor {
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
-        let modified_request = request.header("Authorization", "Bearer token");
+        let modified_request = request.header("Authorization", "Bearer demo-token-12345");
         // 零拷贝优化：直接借用请求体，避免克隆
         Ok((modified_request, Cow::Borrowed(request_body)))
     }
@@ -421,11 +421,11 @@ cargo test --test integration_test
 # 运行示例
 cargo run --example basic_usage           # 基础用法示例（包含状态注入）
 cargo run --example interceptor_usage     # 拦截器用法示例  
-cargo run --example dynamic_params_example # 🆕 动态参数示例（URL和header占位符）
-cargo run --example complex_api_example   # 企业级API示例（性能优化+状态管理）
-cargo run --example state_injection_example # 🆕 状态注入完整示例
-cargo run --example simple_retry_test     # 🔄 简单重试功能测试
-cargo run --example retry_integration_test # 🔄 重试机制集成测试
+cargo run --example dynamic_params        # 🆕 动态参数示例（URL和header占位符）
+cargo run --example complex_api          # 企业级API示例（性能优化+状态管理）
+cargo run --example state_injection      # 🆕 状态注入完整示例
+cargo run --example simple_retry         # 🔄 简单重试功能测试
+cargo run --example retry_integration    # 🔄 重试机制集成测试
 ```
 
 ## 📖 文档

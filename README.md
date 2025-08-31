@@ -162,8 +162,7 @@ impl SwanInterceptor for AuthInterceptor {
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
-        let modified_request = request.header("Authorization", "Bearer token");
-        // Zero-copy optimization: directly borrow request body to avoid cloning
+        let modified_request = request.header("Authorization", "Bearer demo-token-12345");
         Ok((modified_request, Cow::Borrowed(request_body)))
     }
 
@@ -421,11 +420,11 @@ cargo test --test integration_test
 # Run examples
 cargo run --example basic_usage           # Basic usage example (includes state injection)
 cargo run --example interceptor_usage     # Interceptor usage example  
-cargo run --example dynamic_params_example # 🆕 Dynamic parameters example (URL and header placeholders)
-cargo run --example complex_api_example   # Enterprise API example (performance optimization + state management)
-cargo run --example state_injection_example # 🆕 Complete state injection example
-cargo run --example simple_retry_test     # 🔄 Simple retry functionality test
-cargo run --example retry_integration_test # 🔄 Retry mechanism integration test
+cargo run --example dynamic_params        # 🆕 Dynamic parameters example (URL and header placeholders)
+cargo run --example complex_api          # Enterprise API example (performance optimization + state management)
+cargo run --example state_injection      # 🆕 Complete state injection example
+cargo run --example simple_retry         # 🔄 Simple retry functionality test
+cargo run --example retry_integration    # 🔄 Retry mechanism integration test
 ```
 
 ## 📖 Documentation
