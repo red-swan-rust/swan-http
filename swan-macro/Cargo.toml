@@ -1,13 +1,13 @@
 [package]
 name = "swan-macro"
-version = "0.2.5"
+version = "0.2.7"
 edition = "2024"
-authors = ["Your Name <iwanttobeaprince@gmail.com>"]
+authors = ["CC Cheung <iwanttobeaprince@gmail.com>"]
 description = "A declarative HTTP client library for Rust"
 license = "GPL-3.0"
 repository = "https://github.com/red-swan-rust/swan-http.git"
-documentation = "https://docs.rs/swan-http"
-keywords = ["http", "client", "declarative", "rust"]
+documentation = "https://github.com/red-swan-rust/swan-http/tree/master/docs"
+keywords = ["http", "client", "declarative", "rust", "forest"]
 categories = ["network-programming", "development-tools", "web-programming::http-client"]
 readme = "README.md"
 
@@ -20,4 +20,4 @@ quote = "1.0"
 proc-macro2 = "1.0"
 heck = "0.5.0"
 serde_json = { workspace = true }
-swan-common = "0.2.5"
+swan-common = "0.2.7"
