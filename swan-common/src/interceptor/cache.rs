@@ -1,7 +1,6 @@
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::interceptor::SwanInterceptor;
 
 /// 拦截器缓存管理器
 /// 
@@ -9,7 +8,8 @@ use crate::interceptor::SwanInterceptor;
 /// 使用 Arc 来实现零成本的拦截器共享。
 pub struct InterceptorCache {
     /// 方法级拦截器缓存，按类型ID索引
-    method_interceptors: HashMap<TypeId, Arc<dyn SwanInterceptor + Send + Sync>>,
+    /// 使用类型擦除存储以支持不同的状态类型
+    method_interceptors: HashMap<TypeId, Arc<dyn std::any::Any + Send + Sync>>,
 }
 
 impl InterceptorCache {
@@ -24,21 +24,24 @@ impl InterceptorCache {
     /// 
     /// # 类型参数
     /// 
-    /// * `T` - 拦截器类型，必须实现 SwanInterceptor + Default + Send + Sync
+    /// * `T` - 拦截器类型，必须实现 Default + Send + Sync
     /// 
     /// # 返回值
     /// 
     /// 返回拦截器的 Arc 引用
-    pub fn get_or_create<T>(&mut self) -> Arc<dyn SwanInterceptor + Send + Sync>
+    pub fn get_or_create<T>(&mut self) -> Arc<T>
     where
-        T: SwanInterceptor + Default + Send + Sync + 'static,
+        T: Default + Send + Sync + 'static,
     {
         let type_id = TypeId::of::<T>();
         
-        self.method_interceptors
+        let any_interceptor = self.method_interceptors
             .entry(type_id)
-            .or_insert_with(|| Arc::new(T::default()))
-            .clone()
+            .or_insert_with(|| Arc::new(T::default()) as Arc<dyn std::any::Any + Send + Sync>)
+            .clone();
+            
+        // 安全的向下转型，因为我们知道确切的类型
+        any_interceptor.downcast::<T>().unwrap()
     }
 
     /// 预热拦截器缓存
@@ -46,7 +49,7 @@ impl InterceptorCache {
     /// 在客户端初始化时调用，预先创建常用的拦截器实例
     pub fn warmup<T>(&mut self)
     where
-        T: SwanInterceptor + Default + Send + Sync + 'static,
+        T: Default + Send + Sync + 'static,
     {
         let _ = self.get_or_create::<T>();
     }
@@ -72,7 +75,7 @@ impl Default for InterceptorCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::interceptor::traits::NoOpInterceptor;
+    use crate::interceptor::traits::{NoOpInterceptor, SwanInterceptor};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use async_trait::async_trait;
     use std::borrow::Cow;
@@ -83,12 +86,12 @@ mod tests {
     struct TestInterceptor;
 
     #[async_trait]
-    impl SwanInterceptor for TestInterceptor {
+    impl SwanInterceptor<()> for TestInterceptor {
         async fn before_request<'a>(
             &self,
             request: reqwest::RequestBuilder,
             request_body: &'a [u8],
-            _context: Option<&(dyn std::any::Any + Send + Sync)>,
+            _state: Option<&()>,
         ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
             CREATION_COUNT.fetch_add(1, Ordering::SeqCst);
             Ok((request, Cow::Borrowed(request_body)))
@@ -97,7 +100,7 @@ mod tests {
         async fn after_response(
             &self,
             response: reqwest::Response,
-            _context: Option<&(dyn std::any::Any + Send + Sync)>,
+            _state: Option<&()>,
         ) -> anyhow::Result<reqwest::Response> {
             Ok(response)
         }

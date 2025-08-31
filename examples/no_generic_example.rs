@@ -3,9 +3,8 @@ use swan_macro::{http_client, get};
 use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
-use log::{info, warn, error, debug};
+use log::{info, debug, error};
 
-/// 用户数据结构
 #[derive(Debug, Deserialize)]
 struct User {
     id: u32,
@@ -13,17 +12,17 @@ struct User {
     email: String,
 }
 
-/// 认证拦截器 - 无状态实现
+/// 简单的认证拦截器 - 不写泛型，使用默认的()
 #[derive(Default)]
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for AuthInterceptor {
+impl SwanInterceptor for AuthInterceptor {  // 👈 没有泛型！使用默认的<()>
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _state: Option<&()>,
+        _state: Option<&()>,  // 👈 默认状态类型是()
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         debug!("🔐 AuthInterceptor: 添加认证头部");
         let modified_request = request.header("Authorization", "Bearer demo-token-12345");
@@ -33,26 +32,26 @@ impl SwanInterceptor<()> for AuthInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _state: Option<&()>,
+        _state: Option<&()>,  // 👈 默认状态类型是()
     ) -> anyhow::Result<reqwest::Response> {
-        info!("🔐 AuthInterceptor: 响应状态 {}", response.status());
+        debug!("🔐 AuthInterceptor: 响应状态 {}", response.status());
         Ok(response)
     }
 }
 
-/// 日志拦截器 - 无状态实现
+/// 日志拦截器 - 也不写泛型
 #[derive(Default)]
 struct LoggingInterceptor;
 
 #[async_trait]
-impl SwanInterceptor<()> for LoggingInterceptor {
+impl SwanInterceptor for LoggingInterceptor {  // 👈 没有泛型！
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
         _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
-        debug!("📝 LoggingInterceptor: 记录请求，请求体大小: {} 字节", request_body.len());
+        info!("📝 LoggingInterceptor: 记录请求，请求体大小: {} 字节", request_body.len());
         Ok((request, Cow::Borrowed(request_body)))
     }
 
@@ -61,48 +60,56 @@ impl SwanInterceptor<()> for LoggingInterceptor {
         response: reqwest::Response,
         _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
-        info!("📝 LoggingInterceptor: 响应状态: {}, 内容长度: {:?}", 
-                response.status(), 
-                response.headers().get("content-length"));
+        info!("📝 LoggingInterceptor: 响应状态: {}", response.status());
         Ok(response)
     }
 }
 
-/// 带全局认证拦截器的 API 客户端
+/// API客户端 - 使用无泛型的拦截器
 #[http_client(base_url = "https://jsonplaceholder.typicode.com", interceptor = AuthInterceptor)]
-struct AuthApiClient;
+struct ApiClient;
 
-impl AuthApiClient {
-    /// 获取用户信息（使用全局认证拦截器）
+impl ApiClient {
+    /// 获取用户（使用全局认证拦截器）
     #[get(url = "/users/1")]
     async fn get_user(&self) -> anyhow::Result<User> {}
 
-    /// 获取用户信息（使用方法级日志拦截器）
+    /// 获取用户（使用方法级日志拦截器，会与全局拦截器叠加）
     #[get(url = "/users/2", interceptor = LoggingInterceptor)]
     async fn get_user_with_logging(&self) -> anyhow::Result<User> {}
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    println!("=== Swan HTTP Client Interceptor Usage Example ===\n");
+    env_logger::init();
+    
+    println!("=== Swan HTTP 无泛型拦截器示例 ===\n");
+    println!("💡 演示功能：");
+    println!("   - SwanInterceptor 不写泛型（使用默认的<()>）");
+    println!("   - 类型安全的无状态拦截器");
+    println!("   - 使用log库进行日志输出\n");
 
-    let client = AuthApiClient::new();
+    let client = ApiClient::new();
 
     // 示例1：使用全局拦截器
     println!("1. 使用全局认证拦截器获取用户...");
     match client.get_user().await {
-        Ok(user) => info!("   ✅ 成功获取用户: {}\n", user.name),
-        Err(e) => error!("   ❌ 错误: {}\n", e),
+        Ok(user) => info!("✅ 成功获取用户: {}", user.name),
+        Err(e) => error!("❌ 错误: {}", e),
     }
 
     // 示例2：使用方法级拦截器（同时也会使用全局拦截器）
-    println!("2. 使用方法级日志拦截器（叠加全局认证拦截器）...");
+    println!("\n2. 使用方法级日志拦截器（叠加全局认证拦截器）...");
     match client.get_user_with_logging().await {
-        Ok(user) => info!("   ✅ 成功获取用户: {}\n", user.name),
-        Err(e) => error!("   ❌ 错误: {}\n", e),
+        Ok(user) => info!("✅ 成功获取用户: {}", user.name),
+        Err(e) => error!("❌ 错误: {}", e),
     }
 
-    println!("拦截器示例运行完成！");
+    println!("\n🎯 关键说明：");
+    println!("✅ SwanInterceptor 不需要写<()>泛型");
+    println!("✅ 编译器自动使用默认的State = ()");
+    println!("✅ _state参数类型是Option<&()>");
+    println!("✅ 与SwanInterceptor<()>完全等价");
     
     Ok(())
 }

@@ -157,12 +157,12 @@ use std::any::Any;
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for AuthInterceptor {
+impl SwanInterceptor<()> for AuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>, // 👈 状态上下文
+        _state: Option<&()>, // 👈 类型安全的无状态
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let modified_request = request.header("Authorization", "Bearer token");
         // 零拷贝优化：直接借用请求体，避免克隆
@@ -172,7 +172,7 @@ impl SwanInterceptor for AuthInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        context: Option<&(dyn Any + Send + Sync)>, // 👈 状态上下文
+        _state: Option<&()>, // 👈 类型安全的无状态
     ) -> anyhow::Result<reqwest::Response> {
         println!("响应状态: {}", response.status());
         Ok(response)
@@ -226,21 +226,19 @@ impl AppState {
 struct StateAwareInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for StateAwareInterceptor {
+impl SwanInterceptor<AppState> for StateAwareInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let mut request = request;
         
-        // 从context获取状态
-        if let Some(ctx) = context {
-            if let Some(app_state) = ctx.downcast_ref::<AppState>() {
-                if let Some(token) = app_state.get_cached_token().await {
-                    request = request.header("Authorization", format!("Bearer {}", token));
-                }
+        // 直接类型安全的状态访问
+        if let Some(app_state) = state {
+            if let Some(token) = app_state.get_cached_token().await {
+                request = request.header("Authorization", format!("Bearer {}", token));
             }
         }
         

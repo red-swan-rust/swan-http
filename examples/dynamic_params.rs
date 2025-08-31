@@ -4,6 +4,7 @@ use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::any::Any;
+use log::{info, warn, error, debug};
 
 /// 用户数据结构
 #[derive(Debug, Deserialize, Serialize)]
@@ -45,23 +46,23 @@ struct SearchResult {
 struct LoggingInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for LoggingInterceptor {
+impl SwanInterceptor<()> for LoggingInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
-        println!("📝 发送请求...");
+        debug!("📝 发送请求...");
         Ok((request, Cow::Borrowed(request_body)))
     }
 
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
-        println!("✅ 收到响应: {}", response.status());
+        info!("✅ 收到响应: {}", response.status());
         Ok(response)
     }
 }
@@ -179,15 +180,15 @@ async fn main() -> anyhow::Result<()> {
     // 示例1：简单路径参数
     println!("1. 📋 简单路径参数 (/users/{{user_id}})...");
     match client.get_user(1).await {
-        Ok(user) => println!("   ✅ 获取用户: {}", user.name),
-        Err(e) => println!("   ❌ 错误: {}", e),
+        Ok(user) => info!("   ✅ 获取用户: {}", user.name),
+        Err(e) => error!("   ❌ 错误: {}", e),
     }
 
     // 示例2：获取用户帖子
     println!("\n2. 📝 获取用户帖子 (/users/{{user_id}}/posts)...");
     match client.get_user_posts(1).await {
-        Ok(posts) => println!("   ✅ 获取到 {} 篇帖子", posts.len()),
-        Err(e) => println!("   ❌ 错误: {}", e),
+        Ok(posts) => info!("   ✅ 获取到 {} 篇帖子", posts.len()),
+        Err(e) => error!("   ❌ 错误: {}", e),
     }
 
     // 示例3：创建帖子（URL和header都有动态参数）
@@ -199,8 +200,8 @@ async fn main() -> anyhow::Result<()> {
     };
     
     match client.create_user_post(1, "swan-http-client".to_string(), new_post).await {
-        Ok(post) => println!("   ✅ 创建帖子: {}", post.title),
-        Err(e) => println!("   ❌ 错误: {}", e),
+        Ok(post) => info!("   ✅ 创建帖子: {}", post.title),
+        Err(e) => error!("   ❌ 错误: {}", e),
     }
 
     // 示例4：更新帖子（多个路径参数）
@@ -212,29 +213,29 @@ async fn main() -> anyhow::Result<()> {
     };
     
     match client.update_post(1, 1, update_post).await {
-        Ok(post) => println!("   ✅ 更新帖子: {}", post.title),
-        Err(e) => println!("   ❌ 错误: {}", e),
+        Ok(post) => info!("   ✅ 更新帖子: {}", post.title),
+        Err(e) => error!("   ❌ 错误: {}", e),
     }
 
     // 示例5：按位置引用参数
     println!("\n5. 🔍 按位置搜索 (使用 {{param0}}, {{param1}})...");
     match client.search_posts_by_position("swan".to_string(), 1).await {
-        Ok(posts) => println!("   ✅ 搜索到 {} 篇帖子", posts.len()),
-        Err(e) => println!("   ❌ 错误: {}", e),
+        Ok(posts) => info!("   ✅ 搜索到 {} 篇帖子", posts.len()),
+        Err(e) => error!("   ❌ 错误: {}", e),
     }
 
     // 示例6：复杂查询（混合名称和位置引用）
     println!("\n6. 🔍 复杂查询（混合引用方式）...");
     match client.search_user_posts(1, 1, "title".to_string(), "asc".to_string()).await {
-        Ok(posts) => println!("   ✅ 查询到 {} 篇帖子", posts.len()),
-        Err(e) => println!("   ❌ 错误: {}", e),
+        Ok(posts) => info!("   ✅ 查询到 {} 篇帖子", posts.len()),
+        Err(e) => error!("   ❌ 错误: {}", e),
     }
 
     // 示例7：删除帖子（动态认证header）
     println!("\n7. 🗑️  删除帖子（动态认证）...");
     match client.delete_post(1, "demo-token-12345".to_string(), "test cleanup".to_string()).await {
-        Ok(_) => println!("   ✅ 帖子删除成功"),
-        Err(e) => println!("   ❌ 错误: {}", e),
+        Ok(_) => info!("   ✅ 帖子删除成功"),
+        Err(e) => error!("   ❌ 错误: {}", e),
     }
 
     println!("\n🎉 动态参数示例完成！");

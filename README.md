@@ -157,12 +157,12 @@ use std::any::Any;
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for AuthInterceptor {
+impl SwanInterceptor<()> for AuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>, // 👈 State context
+        _state: Option<&()>, // 👈 Type-safe stateless
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let modified_request = request.header("Authorization", "Bearer token");
         // Zero-copy optimization: directly borrow request body to avoid cloning
@@ -172,7 +172,7 @@ impl SwanInterceptor for AuthInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        context: Option<&(dyn Any + Send + Sync)>, // 👈 State context
+        _state: Option<&()>, // 👈 Type-safe stateless
     ) -> anyhow::Result<reqwest::Response> {
         println!("Response status: {}", response.status());
         Ok(response)
@@ -226,21 +226,19 @@ impl AppState {
 struct StateAwareInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for StateAwareInterceptor {
+impl SwanInterceptor<AppState> for StateAwareInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let mut request = request;
         
-        // Get state from context
-        if let Some(ctx) = context {
-            if let Some(app_state) = ctx.downcast_ref::<AppState>() {
-                if let Some(token) = app_state.get_cached_token().await {
-                    request = request.header("Authorization", format!("Bearer {}", token));
-                }
+        // Direct type-safe state access
+        if let Some(app_state) = state {
+            if let Some(token) = app_state.get_cached_token().await {
+                request = request.header("Authorization", format!("Bearer {}", token));
             }
         }
         
@@ -250,7 +248,7 @@ impl SwanInterceptor for StateAwareInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&AppState>,
     ) -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }

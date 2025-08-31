@@ -5,6 +5,7 @@ use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::any::Any;
+use log::{info, warn, error, debug};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct User {
@@ -82,12 +83,12 @@ impl UnstableInterceptor {
 }
 
 #[async_trait]
-impl SwanInterceptor for UnstableInterceptor {
+impl SwanInterceptor<()> for UnstableInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         // 模拟网络不稳定
         if fastrand::f64() < self.failure_rate {
@@ -99,7 +100,7 @@ impl SwanInterceptor for UnstableInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         // 模拟响应处理不稳定
         if fastrand::f64() < self.failure_rate * 0.5 {
@@ -143,12 +144,12 @@ where
                 successful_calls += 1;
                 let duration = start.elapsed();
                 total_duration += duration;
-                println!("  ✅ 测试 {}: 成功 ({}ms)", i, duration.as_millis());
+                info!("  ✅ 测试 {}: 成功 ({}ms)", i, duration.as_millis());
             }
             Err(e) => {
                 let duration = start.elapsed();
                 total_duration += duration;
-                println!("  ❌ 测试 {}: 失败 ({}ms) - {}", i, duration.as_millis(), e);
+                error!("  ❌ 测试 {}: 失败 ({}ms) - {}", i, duration.as_millis(), e);
             }
         }
     }
@@ -156,13 +157,13 @@ where
     let success_rate = successful_calls as f64 / test_iterations as f64;
     let avg_duration = total_duration / test_iterations;
     
-    println!("📊 结果: {}/{} 成功 ({:.1}%), 平均耗时: {}ms", 
+    info!("📊 结果: {}/{} 成功 ({:.1}%), 平均耗时: {}ms", 
              successful_calls, test_iterations, success_rate * 100.0, avg_duration.as_millis());
     
     if success_rate >= expected_success_rate {
-        println!("✅ 达到预期成功率 {:.1}%", expected_success_rate * 100.0);
+        info!("✅ 达到预期成功率 {:.1}%", expected_success_rate * 100.0);
     } else {
-        println!("⚠️  未达到预期成功率 {:.1}%", expected_success_rate * 100.0);
+        warn!("⚠️  未达到预期成功率 {:.1}%", expected_success_rate * 100.0);
     }
 }
 
@@ -197,8 +198,8 @@ async fn idempotent_safety_demo() {
     
     println!("✅ GET请求 - 天然幂等，支持重试");
     match retry_client.get_user_with_retry().await {
-        Ok(_) => println!("  GET重试成功"),
-        Err(e) => println!("  GET重试失败: {}", e),
+        Ok(_) => info!("  GET重试成功"),
+        Err(e) => error!("  GET重试失败: {}", e),
     }
     
     println!("\n⚠️  POST请求 - 非幂等，默认禁止重试");
@@ -210,14 +211,14 @@ async fn idempotent_safety_demo() {
         email: "test@example.com".to_string(),
     };
     match retry_client.update_user_aggressive_retry(1, create_req).await {
-        Ok(_) => println!("  PUT重试成功"),
-        Err(e) => println!("  PUT重试失败: {}", e),
+        Ok(_) => info!("  PUT重试成功"),
+        Err(e) => error!("  PUT重试失败: {}", e),
     }
     
     println!("✅ DELETE请求 - 幂等操作，支持重试");
     match retry_client.delete_user_fixed_retry(1).await {
-        Ok(_) => println!("  DELETE重试成功"),
-        Err(e) => println!("  DELETE重试失败: {}", e),
+        Ok(_) => info!("  DELETE重试成功"),
+        Err(e) => error!("  DELETE重试失败: {}", e),
     }
 }
 

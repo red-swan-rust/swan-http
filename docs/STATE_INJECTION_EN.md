@@ -12,19 +12,19 @@ Swan HTTP supports application state injection, allowing interceptors to access 
 
 - **Declarative configuration**: Declare `state = YourStateType` in the `#[http_client]` macro
 - **Chained initialization**: Use `.with_state(state)` method to inject state instance
-- **Automatic passing**: Framework automatically passes state as context to interceptors
-- **Type safety**: Safe state access through `downcast_ref::<YourStateType>()`
+- **Automatic passing**: Framework automatically passes state as state parameter to interceptors
+- **Type safety**: Compile-time type checking, no need for `downcast_ref`
 
-### 2. Interceptor Context Parameter
+### 2. Interceptor State Parameter
 
-All interceptor methods include a `context` parameter:
+All interceptor methods include a type-safe `state` parameter:
 
 ```rust
 async fn before_request<'a>(
     &self,
     request: reqwest::RequestBuilder,
     request_body: &'a [u8],
-    context: Option<&(dyn Any + Send + Sync)>, // 👈 State is passed here
+    state: Option<&AppState>, // 👈 Type-safe state parameter
 ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>
 ```
 
@@ -76,24 +76,22 @@ impl AppState {
 use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
-use std::any::Any;
 
 #[derive(Default)]
 struct StateAwareInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for StateAwareInterceptor {
+impl SwanInterceptor<AppState> for StateAwareInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let mut request = request;
         
-        // Get application state from context
-        if let Some(ctx) = context {
-            if let Some(app_state) = ctx.downcast_ref::<AppState>() {
+        // Direct access to type-safe state
+        if let Some(app_state) = state {
                 // Use cached token from state
                 if let Some(token) = app_state.get_cached_token().await {
                     println!("🔐 Using cached token: {}...", &token[..20]);
@@ -102,10 +100,9 @@ impl SwanInterceptor for StateAwareInterceptor {
                     // Update request counter
                     let count = app_state.increment_counter().await;
                     request = request.header("X-Request-Count", count.to_string());
-                } else {
-                    // fallback to default token
-                    request = request.header("Authorization", "Bearer default-token");
-                }
+            } else {
+                // fallback to default token
+                request = request.header("Authorization", "Bearer default-token");
             }
         } else {
             // No state fallback
@@ -118,13 +115,11 @@ impl SwanInterceptor for StateAwareInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<reqwest::Response> {
-        if let Some(ctx) = context {
-            if let Some(app_state) = ctx.downcast_ref::<AppState>() {
-                let current_count = *app_state.request_counter.read().unwrap();
-                println!("📈 State statistics: Currently processed {} requests", current_count);
-            }
+        if let Some(app_state) = state {
+            let current_count = *app_state.request_counter.read().unwrap();
+            println!("📈 State statistics: Currently processed {} requests", current_count);
         }
         
         Ok(response)
@@ -203,28 +198,21 @@ struct AppState {
 ### 2. Conditional State Access
 
 ```rust
+// Different state types require different interceptor implementations
+
 #[async_trait]
-impl SwanInterceptor for MyInterceptor {
+impl SwanInterceptor<AppState> for MyInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let mut request = request;
         
-        if let Some(ctx) = context {
-            // Try multiple state types
-            if let Some(app_state) = ctx.downcast_ref::<AppState>() {
-                // Handle full application state
-                request = self.handle_full_state(request, app_state).await?;
-            } else if let Some(db_state) = ctx.downcast_ref::<DatabaseState>() {
-                // Only database state
-                request = self.handle_db_only(request, db_state).await?;
-            } else {
-                // Unknown state type
-                println!("⚠️ Unknown state type");
-            }
+        if let Some(app_state) = state {
+            // Handle full application state
+            request = self.handle_full_state(request, app_state).await?;
         }
         
         Ok((request, Cow::Borrowed(request_body)))
@@ -265,15 +253,13 @@ tokio::try_join!(
 ### 2. Interceptor State Access
 
 ```rust
-// ✅ Recommended: Clear type checking
-if let Some(ctx) = context {
-    if let Some(app_state) = ctx.downcast_ref::<AppState>() {
-        // Safe state access
-    }
+// ✅ Recommended: Type-safe state access
+if let Some(app_state) = state {
+    // Direct access, no type conversion needed
 }
 
 // ❌ Avoid: Assuming state always exists
-let app_state = context.unwrap().downcast_ref::<AppState>().unwrap();
+let app_state = state.unwrap();
 ```
 
 ### 3. Error Handling
@@ -427,20 +413,27 @@ Please refer to the following example files:
 
 2. **Update interceptor signature**:
    ```rust
-   // Before
-   async fn before_request<'a>(
-       &self,
-       request: reqwest::RequestBuilder,
-       request_body: &'a [u8],
-   ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>
+   // Before (stateless)
+   #[async_trait]
+   impl SwanInterceptor<()> for MyInterceptor {
+       async fn before_request<'a>(
+           &self,
+           request: reqwest::RequestBuilder,
+           request_body: &'a [u8],
+           _state: Option<&()>,
+       ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>
+   }
    
-   // After
-   async fn before_request<'a>(
-       &self,
-       request: reqwest::RequestBuilder,
-       request_body: &'a [u8],
-       context: Option<&(dyn Any + Send + Sync)>, // 👈 New parameter
-   ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>
+   // After (stateful)
+   #[async_trait]
+   impl SwanInterceptor<AppState> for MyInterceptor {
+       async fn before_request<'a>(
+           &self,
+           request: reqwest::RequestBuilder,
+           request_body: &'a [u8],
+           state: Option<&AppState>, // 👈 Type-safe state parameter
+       ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>
+   }
    ```
 
 3. **Update client initialization**:
@@ -457,13 +450,13 @@ Please refer to the following example files:
 
 1. **Thread safety**: State must implement `Send + Sync`
 2. **Clone cost**: State should use `Arc` to wrap expensive resources
-3. **Type checking**: Use `downcast_ref` for safe type conversion
+3. **Type safety**: Compile-time type checking, no runtime conversion needed
 4. **Fallback mechanism**: Always provide fallback handling for stateless situations
 5. **Backward compatibility**: Existing stateless interceptors can continue working by ignoring the context parameter
 
 ## Performance Considerations
 
-- **State access overhead**: `downcast_ref` has slight runtime overhead, but is faster than dynamic dispatch
+- **State access overhead**: Compile-time type checking, zero runtime overhead
 - **Memory usage**: State is shared across all client instances, saving memory
 - **Lock contention**: Design state structure reasonably to avoid lock contention
 - **Prewarming strategy**: Preload commonly used data during application startup
@@ -472,7 +465,7 @@ Please refer to the following example files:
 
 ### Common Errors
 
-1. **downcast failure**: Check if state type matches correctly
+1. **Type mismatch**: Check if interceptor registered state type matches client declaration
 2. **Send + Sync error**: Ensure all fields in state are thread-safe
 3. **Clone error**: State type must implement `Clone`
 4. **Lifetime issues**: Ensure state lifetime is longer than client
@@ -481,14 +474,10 @@ Please refer to the following example files:
 
 ```rust
 // Debug state passing
-if let Some(ctx) = context {
-    println!("Received context, type: {:?}", ctx.type_id());
-    if let Some(state) = ctx.downcast_ref::<AppState>() {
-        println!("Successfully got AppState");
-    } else {
-        println!("downcast failed");
-    }
+if let Some(app_state) = state {
+    println!("Successfully got AppState: {:?}", std::any::type_name::<AppState>());
+    // Direct use of state, no conversion needed
 } else {
-    println!("No context received");
+    println!("No state received");
 }
 ```

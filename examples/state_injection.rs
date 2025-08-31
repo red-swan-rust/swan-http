@@ -1,12 +1,11 @@
-use serde::Deserialize;
-use swan_macro::{http_client, get};
+use serde::{Deserialize, Serialize};
+use swan_macro::{http_client, get, post};
 use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use std::any::Any;
-
+use log::{info, warn, error, debug};
 /// 应用状态结构
 /// 
 /// 模拟真实应用中的状态管理，包含缓存、配置等
@@ -48,78 +47,36 @@ impl AppState {
     }
 }
 
-/// 支持状态的认证拦截器
+/// 类型安全的认证拦截器
 /// 
-/// 演示如何从应用状态中获取认证信息
-struct StatefulAuthInterceptor {
-    state: Option<AppState>,
-}
-
-impl Default for StatefulAuthInterceptor {
-    fn default() -> Self {
-        Self { state: None }
-    }
-}
-
-impl StatefulAuthInterceptor {
-    pub fn with_state(state: AppState) -> Self {
-        Self {
-            state: Some(state),
-        }
-    }
-}
+/// 演示如何通过类型安全的方式访问应用状态
+#[derive(Default)]
+struct StatefulAuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for StatefulAuthInterceptor {
-    // 状态感知的方法实现
+impl SwanInterceptor<AppState> for StatefulAuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,  // 🎉 类型安全，无需 downcast！
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
-        // 首先尝试从context获取state
-        if let Some(ctx) = context {
-            if let Some(app_state) = ctx.downcast_ref::<AppState>() {
-                // 从状态中获取缓存的token
-                if let Some(token) = app_state.get_cached_token().await {
-                    println!("🔐 从AppState获取缓存token: {}...", &token[..std::cmp::min(20, token.len())]);
-                    let request_count = app_state.increment_counter().await;
-                    println!("📊 这是第 {} 个请求", request_count);
-                    
-                    let request = request
-                        .header("Authorization", format!("Bearer {}", token))
-                        .header("X-Request-Count", request_count.to_string());
-                    
-                    return Ok((request, Cow::Borrowed(request_body)));
-                }
-            }
-        }
-
-        // fallback: 检查内部state
-        match &self.state {
-            Some(app_state) => {
-                // 从状态中获取缓存的token
-                if let Some(token) = app_state.get_cached_token().await {
-                    println!("🔐 从内部AppState获取缓存token: {}...", &token[..std::cmp::min(20, token.len())]);
-                    let request_count = app_state.increment_counter().await;
-                    println!("📊 这是第 {} 个请求", request_count);
-                    
-                    let request = request
-                        .header("Authorization", format!("Bearer {}", token))
-                        .header("X-Request-Count", request_count.to_string());
-                    
-                    return Ok((request, Cow::Borrowed(request_body)));
-                }
+        if let Some(app_state) = state {
+            // 直接使用类型化的状态，无需类型转换
+            if let Some(token) = app_state.get_cached_token().await {
+                debug!("🔐 获取缓存token: {}...", &token[..std::cmp::min(20, token.len())]);
+                let request_count = app_state.increment_counter().await;
+                info!("📊 这是第 {} 个请求", request_count);
                 
-                // fallback到默认token
-                println!("⚠️  State访问失败，使用fallback");
-            }
-            None => {
-                println!("🔐 使用默认token（无state访问）");
+                let request = request
+                    .header("Authorization", format!("Bearer {}", token))
+                    .header("X-Request-Count", request_count.to_string());
+                
+                return Ok((request, Cow::Borrowed(request_body)));
             }
         }
         
+        debug!("🔐 使用默认token（无状态访问）");
         let request = request.header("Authorization", "Bearer default-token");
         Ok((request, Cow::Borrowed(request_body)))
     }
@@ -127,23 +84,13 @@ impl SwanInterceptor for StatefulAuthInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,  // 🎉 类型安全！
     ) -> anyhow::Result<reqwest::Response> {
-        // 首先尝试从context获取state
-        if let Some(ctx) = context {
-            if let Some(app_state) = ctx.downcast_ref::<AppState>() {
-                let current_count = *app_state.request_counter.read().unwrap();
-                println!("📈 State统计: 当前已处理 {} 个请求", current_count);
-                return Ok(response);
-            }
-        }
-
-        // fallback: 检查内部state
-        if let Some(app_state) = &self.state {
+        if let Some(app_state) = state {
             let current_count = *app_state.request_counter.read().unwrap();
-            println!("📈 内部State统计: 当前已处理 {} 个请求", current_count);
+            info!("📈 状态统计: 当前已处理 {} 个请求", current_count);
         } else {
-            println!("✅ 响应处理完成");
+            info!("✅ 响应处理完成");
         }
         Ok(response)
     }
@@ -176,6 +123,17 @@ impl StatefulApiClient {
     /// 获取所有用户
     #[get(url = "/users")]
     async fn get_all_users(&self) -> anyhow::Result<Vec<User>> {}
+
+    /// 创建用户（演示POST请求）
+    #[post(url = "/users", content_type = json)]
+    async fn create_user(&self, body: CreateUserRequest) -> anyhow::Result<User> {}
+}
+
+/// 创建用户请求结构
+#[derive(Serialize)]
+struct CreateUserRequest {
+    name: String,
+    email: String,
 }
 
 #[tokio::main]
@@ -206,23 +164,37 @@ async fn main() -> anyhow::Result<()> {
     println!("\n3. 👤 调用API（拦截器将访问state）...");
     match client.get_user().await {
         Ok(user) => {
-            println!("   ✅ 成功获取用户: {}", user.name);
-            println!("   📧 邮箱: {}", user.email);
+            info!("   ✅ 成功获取用户: {}", user.name);
+            info!("   📧 邮箱: {}", user.email);
         }
-        Err(e) => println!("   ❌ 请求失败: {}", e),
+        Err(e) => error!("   ❌ 请求失败: {}", e),
     }
 
     // 4. 再次调用验证计数器
     println!("\n4. 👥 再次调用API验证计数器...");
     match client.get_all_users().await {
         Ok(users) => {
-            println!("   ✅ 成功获取 {} 个用户", users.len());
+            info!("   ✅ 成功获取 {} 个用户", users.len());
         }
-        Err(e) => println!("   ❌ 请求失败: {}", e),
+        Err(e) => error!("   ❌ 请求失败: {}", e),
     }
 
-    // 5. 展示最终状态
-    println!("\n5. 📊 最终状态统计:");
+    // 5. 测试POST请求
+    println!("\n5. 📝 测试创建用户 (POST请求):");
+    let new_user = CreateUserRequest {
+        name: "张三".to_string(),
+        email: "zhangsan@example.com".to_string(),
+    };
+    match client.create_user(new_user).await {
+        Ok(user) => {
+            info!("   ✅ 成功创建用户: {}", user.name);
+            info!("   📧 邮箱: {}", user.email);
+        }
+        Err(e) => error!("   ❌ 创建失败: {}", e),
+    }
+
+    // 6. 展示最终状态
+    println!("\n6. 📊 最终状态统计:");
     let final_count = *app_state.request_counter.read().unwrap();
     println!("   📈 总请求数: {}", final_count);
     

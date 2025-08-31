@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use swan_common::SwanInterceptor;
 use std::borrow::Cow;
 use std::any::Any;
+use log::{info, warn, error, debug};
 
 #[derive(Debug, Deserialize, Serialize)]
 struct User {
@@ -35,27 +36,27 @@ struct CreatePostRequest {
 struct RetryMonitoringInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for RetryMonitoringInterceptor {
+impl SwanInterceptor<()> for RetryMonitoringInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
-        log::info!("🚀 发送请求到: {}", request.try_clone().unwrap().build().unwrap().url());
+        debug!("🚀 发送请求到: {}", request.try_clone().unwrap().build().unwrap().url());
         Ok((request, Cow::Borrowed(request_body)))
     }
 
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         let status = response.status();
         if status.is_success() {
-            log::info!("✅ 响应成功: {}", status);
+            info!("✅ 响应成功: {}", status);
         } else {
-            log::warn!("⚠️ 响应错误: {} - {}", status, status.canonical_reason().unwrap_or("未知错误"));
+            warn!("⚠️ 响应错误: {} - {}", status, status.canonical_reason().unwrap_or("未知错误"));
         }
         Ok(response)
     }
@@ -232,11 +233,11 @@ async fn demo_retry_strategies() -> anyhow::Result<()> {
         match result {
             Ok(_) => {
                 let duration = start.elapsed();
-                println!("  ✅ 成功 (耗时: {:?})\n", duration);
+                info!("  ✅ 成功 (耗时: {:?})\n", duration);
             }
             Err(e) => {
                 let duration = start.elapsed();
-                println!("  ❌ 失败: {} (耗时: {:?})\n", e, duration);
+                error!("  ❌ 失败: {} (耗时: {:?})\n", e, duration);
             }
         }
     }
@@ -255,21 +256,21 @@ async fn demo_http_method_retry_behavior() -> anyhow::Result<()> {
     
     let get_start = Instant::now();
     match client.get_user_safe_retry(1).await {
-        Ok(user) => println!("  ✅ GET成功: {} (耗时: {:?})", user.name, get_start.elapsed()),
-        Err(e) => println!("  ❌ GET失败: {} (耗时: {:?})", e, get_start.elapsed()),
+        Ok(user) => info!("  ✅ GET成功: {} (耗时: {:?})", user.name, get_start.elapsed()),
+        Err(e) => error!("  ❌ GET失败: {} (耗时: {:?})", e, get_start.elapsed()),
     }
     
     let update_user = User { id: 1, name: "Updated Name".to_string(), email: "updated@example.com".to_string() };
     let put_start = Instant::now();
     match client.update_user_safe_retry(1, update_user).await {
-        Ok(_) => println!("  ✅ PUT成功 (耗时: {:?})", put_start.elapsed()),
-        Err(e) => println!("  ❌ PUT失败: {} (耗时: {:?})", e, put_start.elapsed()),
+        Ok(_) => info!("  ✅ PUT成功 (耗时: {:?})", put_start.elapsed()),
+        Err(e) => error!("  ❌ PUT失败: {} (耗时: {:?})", e, put_start.elapsed()),
     }
     
     let delete_start = Instant::now();
     match client.delete_user_safe_retry(999).await {
-        Ok(_) => println!("  ✅ DELETE成功 (耗时: {:?})", delete_start.elapsed()),
-        Err(e) => println!("  ❌ DELETE失败: {} (耗时: {:?})", e, delete_start.elapsed()),
+        Ok(_) => info!("  ✅ DELETE成功 (耗时: {:?})", delete_start.elapsed()),
+        Err(e) => error!("  ❌ DELETE失败: {} (耗时: {:?})", e, delete_start.elapsed()),
     }
     
     // 测试非幂等方法（默认不重试）
@@ -283,14 +284,14 @@ async fn demo_http_method_retry_behavior() -> anyhow::Result<()> {
     
     let post_start = Instant::now();
     match client.create_post_no_retry(create_post.clone()).await {
-        Ok(_) => println!("  ✅ POST成功（默认无重试） (耗时: {:?})", post_start.elapsed()),
-        Err(e) => println!("  ❌ POST失败（默认无重试）: {} (耗时: {:?})", e, post_start.elapsed()),
+        Ok(_) => info!("  ✅ POST成功（默认无重试） (耗时: {:?})", post_start.elapsed()),
+        Err(e) => error!("  ❌ POST失败（默认无重试）: {} (耗时: {:?})", e, post_start.elapsed()),
     }
     
     let idempotent_post_start = Instant::now();
     match client.create_idempotent_post(create_post).await {
-        Ok(_) => println!("  ✅ POST成功（强制重试） (耗时: {:?})", idempotent_post_start.elapsed()),
-        Err(e) => println!("  ❌ POST失败（强制重试）: {} (耗时: {:?})", e, idempotent_post_start.elapsed()),
+        Ok(_) => info!("  ✅ POST成功（强制重试） (耗时: {:?})", idempotent_post_start.elapsed()),
+        Err(e) => error!("  ❌ POST失败（强制重试）: {} (耗时: {:?})", e, idempotent_post_start.elapsed()),
     }
     
     println!();
@@ -326,17 +327,17 @@ async fn demo_error_scenario_retry() {
         
         match result {
             Ok(_) => {
-                println!("  🎉 意外成功！（服务器可能已修复）");
+                info!("  🎉 意外成功！（服务器可能已修复）");
             }
             Err(e) => {
                 let duration = start.elapsed();
-                println!("  ❌ 预期失败: {}", e);
+                error!("  ❌ 预期失败: {}", e);
                 
                 // 通过执行时间判断是否发生了重试
                 if duration.as_millis() > 200 {
-                    println!("  🔄 检测到重试行为（总耗时: {:?}）", duration);
+                    info!("  🔄 检测到重试行为（总耗时: {:?}）", duration);
                 } else {
-                    println!("  ⚡ 快速失败（可能未重试，耗时: {:?}）", duration);
+                    info!("  ⚡ 快速失败（可能未重试，耗时: {:?}）", duration);
                 }
             }
         }
@@ -358,9 +359,9 @@ async fn demo_performance_comparison() -> anyhow::Result<()> {
     match client.get_user_no_retry(1).await {
         Ok(_) => {
             let duration = start.elapsed();
-            println!("  📈 无重试: {:?}", duration);
+            info!("  📈 无重试: {:?}", duration);
         }
-        Err(e) => println!("  ❌ 无重试失败: {}", e),
+        Err(e) => error!("  ❌ 无重试失败: {}", e),
     }
     
     // 有重试版本（成功场景）
@@ -368,9 +369,9 @@ async fn demo_performance_comparison() -> anyhow::Result<()> {
     match client.get_user_fast_retry(1).await {
         Ok(_) => {
             let duration = start.elapsed();
-            println!("  📈 快速重试: {:?}", duration);
+            info!("  📈 快速重试: {:?}", duration);
         }
-        Err(e) => println!("  ❌ 快速重试失败: {}", e),
+        Err(e) => error!("  ❌ 快速重试失败: {}", e),
     }
     
     // 并发性能测试
@@ -394,16 +395,16 @@ async fn demo_performance_comparison() -> anyhow::Result<()> {
         if let Ok((id, success, duration)) = handle.await {
             if success {
                 success_count += 1;
-                println!("  ✅ 请求#{}: 成功 ({:?})", id, duration);
+                info!("  ✅ 请求#{}: 成功 ({:?})", id, duration);
             } else {
-                println!("  ❌ 请求#{}: 失败 ({:?})", id, duration);
+                error!("  ❌ 请求#{}: 失败 ({:?})", id, duration);
             }
         }
     }
     
     let total_duration = start_all.elapsed();
-    println!("  📊 总体结果: {}/{} 成功, 总耗时: {:?}", success_count, concurrent_count, total_duration);
-    println!("  📈 平均每请求: {:?}", total_duration / concurrent_count);
+    info!("  📊 总体结果: {}/{} 成功, 总耗时: {:?}", success_count, concurrent_count, total_duration);
+    info!("  📈 平均每请求: {:?}", total_duration / concurrent_count);
     
     Ok(())
 }

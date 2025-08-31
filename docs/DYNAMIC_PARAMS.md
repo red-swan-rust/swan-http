@@ -154,20 +154,18 @@ struct AppState {
 struct StateAwareInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for StateAwareInterceptor {
+impl SwanInterceptor<AppState> for StateAwareInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let mut request = request;
         
         // 从状态获取额外的认证信息
-        if let Some(ctx) = context {
-            if let Some(state) = ctx.downcast_ref::<AppState>() {
-                request = request.header("X-Tenant-ID", &state.tenant_id);
-            }
+        if let Some(state) = state {
+            request = request.header("X-Tenant-ID", &state.tenant_id);
         }
         
         Ok((request, Cow::Borrowed(request_body)))
@@ -176,7 +174,7 @@ impl SwanInterceptor for StateAwareInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&AppState>,
     ) -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }
@@ -462,15 +460,23 @@ use log::debug;
 
 // 在拦截器中添加调试日志
 #[async_trait]
-impl SwanInterceptor for DebugInterceptor {
+impl SwanInterceptor<()> for DebugInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         debug!("请求URL和header将被动态替换");
         Ok((request, Cow::Borrowed(request_body)))
+    }
+    
+    async fn after_response(
+        &self,
+        response: reqwest::Response,
+        _state: Option<&()>,
+    ) -> anyhow::Result<reqwest::Response> {
+        Ok(response)
     }
 }
 ```
@@ -506,17 +512,25 @@ async fn main() -> anyhow::Result<()> {
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for AuthInterceptor {
+impl SwanInterceptor<()> for AuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         // 动态参数替换发生在拦截器调用之前
         // 所以这里的request已经包含了替换后的URL和header
         println!("请求已经完成动态参数替换");
         Ok((request, Cow::Borrowed(request_body)))
+    }
+    
+    async fn after_response(
+        &self,
+        response: reqwest::Response,
+        _state: Option<&()>,
+    ) -> anyhow::Result<reqwest::Response> {
+        Ok(response)
     }
 }
 

@@ -2,6 +2,7 @@ use serde::Deserialize;
 use swan_macro::{http_client, get};
 use std::time::Instant;
 use tokio::time::Duration;
+use log::{info, warn, error, debug};
 
 #[derive(Debug, Deserialize)]
 struct Post {
@@ -105,11 +106,11 @@ async fn test_successful_requests() -> anyhow::Result<()> {
         match result {
             Ok(post) => {
                 let duration = start.elapsed();
-                println!("  ✅ {}: 成功获取文章 '{}' (耗时: {:?})", 
+                info!("  ✅ {}: 成功获取文章 '{}' (耗时: {:?})", 
                         name, post.title.chars().take(30).collect::<String>(), duration);
             }
             Err(e) => {
-                println!("  ❌ {}: 失败 - {}", name, e);
+                error!("  ❌ {}: 失败 - {}", name, e);
             }
         }
     }
@@ -128,13 +129,13 @@ async fn test_retry_timing() -> anyhow::Result<()> {
     let _ = client.get_post_fast_retry().await;
     let duration = start.elapsed();
     
-    println!("  📊 快速重试策略完成时间: {:?}", duration);
+    info!("  📊 快速重试策略完成时间: {:?}", duration);
     
     // 成功的请求应该很快完成（不触发重试）
     if duration.as_millis() < 2000 {
-        println!("  ✅ 时间性能符合预期（未触发重试）");
+        info!("  ✅ 时间性能符合预期（未触发重试）");
     } else {
-        println!("  ⚠️  请求时间较长，可能网络环境影响");
+        warn!("  ⚠️  请求时间较长，可能网络环境影响");
     }
     
     Ok(())
@@ -165,17 +166,17 @@ async fn test_error_status_retry() {
         
         match result {
             Ok(_) => {
-                println!("    ✅ 意外成功（可能服务器行为已改变）");
+                info!("    ✅ 意外成功（可能服务器行为已改变）");
             }
             Err(e) => {
                 let duration = start.elapsed();
-                println!("    ❌ 预期失败: {} (总耗时: {:?})", e, duration);
+                error!("    ❌ 预期失败: {} (总耗时: {:?})", e, duration);
                 
                 // 验证重试是否实际发生（通过时间判断）
                 if duration.as_millis() > 300 {
-                    println!("    🔄 检测到重试行为（基于耗时判断）");
+                    info!("    🔄 检测到重试行为（基于耗时判断）");
                 } else {
-                    println!("    ⚡ 快速失败（可能未触发重试）");
+                    info!("    ⚡ 快速失败（可能未触发重试）");
                 }
             }
         }
@@ -212,14 +213,14 @@ async fn test_retry_performance_impact() -> anyhow::Result<()> {
             if success {
                 success_count += 1;
             }
-            println!("  📊 并发请求 #{}: {} (耗时: {:?})", 
+            info!("  📊 并发请求 #{}: {} (耗时: {:?})", 
                     id, if success { "成功" } else { "失败" }, duration);
         }
     }
     
     let avg_duration = total_duration / concurrent_requests;
-    println!("  📈 平均响应时间: {:?}", avg_duration);
-    println!("  📊 成功率: {}/{} ({:.1}%)", 
+    info!("  📈 平均响应时间: {:?}", avg_duration);
+    info!("  📊 成功率: {}/{} ({:.1}%)", 
             success_count, concurrent_requests, 
             (success_count as f64 / concurrent_requests as f64) * 100.0);
     
@@ -252,7 +253,7 @@ async fn test_retry_strategy_comparison() -> anyhow::Result<()> {
         };
         let duration = start.elapsed();
         
-        println!("  📊 {}: {} (耗时: {:?})", 
+        info!("  📊 {}: {} (耗时: {:?})", 
                 strategy_name,
                 if result.is_ok() { "成功" } else { "失败" },
                 duration);
@@ -274,10 +275,10 @@ async fn test_network_conditions() -> anyhow::Result<()> {
     match mock_client.test_delay_tolerance().await {
         Ok(_) => {
             let duration = start.elapsed();
-            println!("    ✅ 延迟容忍测试成功 (耗时: {:?})", duration);
+            info!("    ✅ 延迟容忍测试成功 (耗时: {:?})", duration);
         }
         Err(e) => {
-            println!("    ❌ 延迟容忍测试失败: {}", e);
+            error!("    ❌ 延迟容忍测试失败: {}", e);
         }
     }
     

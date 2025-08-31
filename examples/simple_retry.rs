@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use swan_macro::{http_client, get};
+use log::{info, warn, error, debug};
 
 #[derive(Debug, Deserialize)]
 struct User {
@@ -30,14 +31,14 @@ async fn main() -> anyhow::Result<()> {
     
     println!("测试无重试...");
     match client.get_user_no_retry().await {
-        Ok(user) => println!("✅ 成功: {:?}", user.name),
-        Err(e) => println!("❌ 失败: {}", e),
+        Ok(user) => info!("✅ 成功: {:?}", user.name),
+        Err(e) => error!("❌ 失败: {}", e),
     }
     
     println!("\n测试带重试...");
     match client.get_user_with_retry().await {
-        Ok(user) => println!("✅ 成功: {:?}", user.name),
-        Err(e) => println!("❌ 失败: {}", e),
+        Ok(user) => info!("✅ 成功: {:?}", user.name),
+        Err(e) => error!("❌ 失败: {}", e),
     }
     
     Ok(())

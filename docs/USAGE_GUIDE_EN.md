@@ -145,11 +145,12 @@ struct AuthInterceptor {
 }
 
 #[async_trait]
-impl SwanInterceptor for AuthInterceptor {
+impl SwanInterceptor<()> for AuthInterceptor {
     async fn before_request(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &Vec<u8>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Vec<u8>)> {
         let authenticated_request = request.header(
             "Authorization",
@@ -161,6 +162,7 @@ impl SwanInterceptor for AuthInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
+        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         if response.status() == 401 {
             println!("Authentication failed, token may need refresh");
@@ -274,8 +276,24 @@ async fn example() -> anyhow::Result<()> {
 struct RetryInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for RetryInterceptor {
+impl SwanInterceptor<()> for RetryInterceptor {
     // Only handle retry logic, nothing else
+    async fn before_request(
+        &self,
+        request: reqwest::RequestBuilder,
+        request_body: &Vec<u8>,
+        _state: Option<&()>,
+    ) -> anyhow::Result<(reqwest::RequestBuilder, Vec<u8>)> {
+        Ok((request, request_body.clone()))
+    }
+
+    async fn after_response(
+        &self,
+        response: reqwest::Response,
+        _state: Option<&()>,
+    ) -> anyhow::Result<reqwest::Response> {
+        Ok(response)
+    }
 }
 ```
 

@@ -19,7 +19,16 @@ use crate::optimization::ConditionalOptimizer;
 /// # 返回值
 /// 
 /// 生成的 TokenStream，包含完整的异步方法实现
+/// 
+/// # 注意
+/// 
+/// 目前暂时使用统一的接口，未来需要改进以支持编译时 trait 检测
 pub fn generate_http_method(fn_sig: &Signature, handler_args: &HandlerArgs) -> TokenStream {
+    // 检查是否在有状态的客户端上下文中 - 通过查看 self 的预期字段类型
+    generate_http_method_impl(fn_sig, handler_args, None)
+}
+
+pub fn generate_http_method_impl(fn_sig: &Signature, handler_args: &HandlerArgs, _client_state_type: Option<&syn::Type>) -> TokenStream {
     let fn_name = &fn_sig.ident;
     let inputs = &fn_sig.inputs;
     let output = &fn_sig.output;
@@ -38,8 +47,9 @@ pub fn generate_http_method(fn_sig: &Signature, handler_args: &HandlerArgs) -> T
     // 生成函数参数和请求体处理代码
     let (_body_type, body_param, body_method_call) = generate_body_handling(inputs, handler_args);
 
-    // 生成缓存式拦截器处理代码
-    let method_interceptor_access = CachedInterceptorProcessor::generate_cached_interceptor_access(&handler_args.interceptor);
+    // 生成缓存式拦截器处理代码 - 需要传递状态类型信息
+    // 注意：这里我们暂时无法获取状态类型，需要从上下文传递
+    let method_interceptor_access = CachedInterceptorProcessor::generate_cached_interceptor_access(&handler_args.interceptor, None);
     let request_builder_code = RequestBuilder::generate_request_builder_code(handler_args, &body_method_call, inputs);
 
     // 生成类型转换代码
@@ -56,21 +66,12 @@ pub fn generate_http_method(fn_sig: &Signature, handler_args: &HandlerArgs) -> T
 
     let expanded = quote! {
         pub async fn #fn_name(&self #body_param) #output {
+
             #method_interceptor_access
 
             #request_builder_code
 
             #conditional_logging
-
-            // 处理全局拦截器
-            let request_builder = if let Some(ref global_interceptor) = self.global_interceptor {
-                let request_body = Vec::new(); // 临时空body
-                let context = self.state.as_ref().map(|s| s as &(dyn std::any::Any + Send + Sync));
-                let (modified_builder, _) = global_interceptor.before_request(request_builder, &request_body, context).await?;
-                modified_builder
-            } else {
-                request_builder
-            };
 
             let request = match request_builder.build() {
                 Ok(req) => req,
@@ -81,14 +82,6 @@ pub fn generate_http_method(fn_sig: &Signature, handler_args: &HandlerArgs) -> T
             let result = {
                 #retry_execution
                 
-                // 处理响应拦截器
-                let response = if let Some(ref global_interceptor) = self.global_interceptor {
-                    let context = self.state.as_ref().map(|s| s as &(dyn std::any::Any + Send + Sync));
-                    global_interceptor.after_response(response, context).await?
-                } else {
-                    response
-                };
-
                 if response.status().is_success() {
                     let bytes = match response.bytes().await {
                         Ok(bytes) => bytes,

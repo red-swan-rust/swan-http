@@ -10,19 +10,19 @@ Swan HTTP 支持应用状态注入，允许拦截器访问共享状态（如数�
 
 - **声明式配置**: 在 `#[http_client]` 宏中声明 `state = YourStateType`
 - **链式初始化**: 使用 `.with_state(state)` 方法注入状态实例
-- **自动传递**: 框架自动将状态作为 context 传递给拦截器
-- **类型安全**: 通过 `downcast_ref::<YourStateType>()` 安全访问状态
+- **自动传递**: 框架自动将状态作为 state 传递给拦截器
+- **类型安全**: 编译时类型检查，无需 `downcast_ref`
 
-### 2. 拦截器 Context 参数
+### 2. 拦截器 State 参数
 
-所有拦截器方法都包含一个 `context` 参数：
+所有拦截器方法都包含一个类型安全的 `state` 参数：
 
 ```rust
 async fn before_request<'a>(
     &self,
     request: reqwest::RequestBuilder,
     request_body: &'a [u8],
-    context: Option<&(dyn Any + Send + Sync)>, // 👈 状态通过这里传递
+    state: Option<&AppState>, // 👈 类型安全的状态参数
 ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>
 ```
 
@@ -74,24 +74,22 @@ impl AppState {
 use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
-use std::any::Any;
 
 #[derive(Default)]
 struct StateAwareInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for StateAwareInterceptor {
+impl SwanInterceptor<AppState> for StateAwareInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let mut request = request;
         
-        // 从 context 获取应用状态
-        if let Some(ctx) = context {
-            if let Some(app_state) = ctx.downcast_ref::<AppState>() {
+        // 直接访问类型安全的状态
+        if let Some(app_state) = state {
                 // 使用状态中的缓存token
                 if let Some(token) = app_state.get_cached_token().await {
                     println!("🔐 使用缓存token: {}...", &token[..20]);
@@ -100,10 +98,9 @@ impl SwanInterceptor for StateAwareInterceptor {
                     // 更新请求计数器
                     let count = app_state.increment_counter().await;
                     request = request.header("X-Request-Count", count.to_string());
-                } else {
-                    // fallback 到默认token
-                    request = request.header("Authorization", "Bearer default-token");
-                }
+            } else {
+                // fallback 到默认token
+                request = request.header("Authorization", "Bearer default-token");
             }
         } else {
             // 无状态fallback
@@ -116,13 +113,11 @@ impl SwanInterceptor for StateAwareInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<reqwest::Response> {
-        if let Some(ctx) = context {
-            if let Some(app_state) = ctx.downcast_ref::<AppState>() {
-                let current_count = *app_state.request_counter.read().unwrap();
-                println!("📈 State统计: 当前已处理 {} 个请求", current_count);
-            }
+        if let Some(app_state) = state {
+            let current_count = *app_state.request_counter.read().unwrap();
+            println!("📈 State统计: 当前已处理 {} 个请求", current_count);
         }
         
         Ok(response)
@@ -201,28 +196,21 @@ struct AppState {
 ### 2. 条件状态访问
 
 ```rust
+// 不同状态类型需要不同的拦截器实现
+
 #[async_trait]
-impl SwanInterceptor for MyInterceptor {
+impl SwanInterceptor<AppState> for MyInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let mut request = request;
         
-        if let Some(ctx) = context {
-            // 尝试多种状态类型
-            if let Some(app_state) = ctx.downcast_ref::<AppState>() {
-                // 处理完整应用状态
-                request = self.handle_full_state(request, app_state).await?;
-            } else if let Some(db_state) = ctx.downcast_ref::<DatabaseState>() {
-                // 只有数据库状态
-                request = self.handle_db_only(request, db_state).await?;
-            } else {
-                // 未知状态类型
-                println!("⚠️ 未知的状态类型");
-            }
+        if let Some(app_state) = state {
+            // 处理完整应用状态
+            request = self.handle_full_state(request, app_state).await?;
         }
         
         Ok((request, Cow::Borrowed(request_body)))
@@ -263,15 +251,13 @@ tokio::try_join!(
 ### 2. 拦截器状态访问
 
 ```rust
-// ✅ 推荐：明确的类型检查
-if let Some(ctx) = context {
-    if let Some(app_state) = ctx.downcast_ref::<AppState>() {
-        // 安全访问状态
-    }
+// ✅ 推荐：类型安全的状态访问
+if let Some(app_state) = state {
+    // 直接访问，无需类型转换
 }
 
 // ❌ 避免：假设状态一定存在
-let app_state = context.unwrap().downcast_ref::<AppState>().unwrap();
+let app_state = state.unwrap();
 ```
 
 ### 3. 错误处理
@@ -281,14 +267,14 @@ async fn before_request<'a>(
     &self,
     request: reqwest::RequestBuilder,
     request_body: &'a [u8],
-    context: Option<&(dyn Any + Send + Sync)>,
+    state: Option<&AppState>,
 ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
     let mut request = request;
     
-    match context.and_then(|ctx| ctx.downcast_ref::<AppState>()) {
-        Some(state) => {
+    match state {
+        Some(app_state) => {
             // 有状态时的处理逻辑
-            match state.get_auth_token().await {
+            match app_state.get_auth_token().await {
                 Some(token) => {
                     request = request.header("Authorization", format!("Bearer {}", token));
                 }
@@ -425,20 +411,27 @@ impl MetricsState {
 
 2. **更新拦截器签名**:
    ```rust
-   // 之前
-   async fn before_request<'a>(
-       &self,
-       request: reqwest::RequestBuilder,
-       request_body: &'a [u8],
-   ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>
+   // 之前 (无状态)
+   #[async_trait]
+   impl SwanInterceptor<()> for MyInterceptor {
+       async fn before_request<'a>(
+           &self,
+           request: reqwest::RequestBuilder,
+           request_body: &'a [u8],
+           _state: Option<&()>,
+       ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>
+   }
    
-   // 之后
-   async fn before_request<'a>(
-       &self,
-       request: reqwest::RequestBuilder,
-       request_body: &'a [u8],
-       context: Option<&(dyn Any + Send + Sync)>, // 👈 新增参数
-   ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>
+   // 之后 (有状态)
+   #[async_trait]
+   impl SwanInterceptor<AppState> for MyInterceptor {
+       async fn before_request<'a>(
+           &self,
+           request: reqwest::RequestBuilder,
+           request_body: &'a [u8],
+           state: Option<&AppState>, // 👈 类型安全的状态参数
+       ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>
+   }
    ```
 
 3. **更新客户端初始化**:
@@ -455,13 +448,13 @@ impl MetricsState {
 
 1. **线程安全**: 状态必须实现 `Send + Sync`
 2. **克隆成本**: 状态应该使用 `Arc` 包装昂贵资源
-3. **类型检查**: 使用 `downcast_ref` 进行安全的类型转换
+3. **类型安全**: 编译时类型检查，无需运行时转换
 4. **fallback机制**: 始终为无状态情况提供fallback处理
 5. **向后兼容**: 现有的无状态拦截器可以通过忽略 context 参数继续工作
 
 ## 性能考虑
 
-- **状态访问开销**: `downcast_ref` 有轻微运行时开销，但比动态分发快
+- **状态访问开销**: 编译时类型检查，零运行时开销
 - **内存使用**: 状态在所有客户端实例间共享，节约内存
 - **锁竞争**: 合理设计状态结构避免锁竞争
 - **预热策略**: 在应用启动时预先加载常用数据
@@ -470,7 +463,7 @@ impl MetricsState {
 
 ### 常见错误
 
-1. **downcast失败**: 检查状态类型是否正确匹配
+1. **类型不匹配**: 棄查拦截器注册的状态类型是否与客户端声明一致
 2. **Send + Sync错误**: 确保状态中的所有字段都是线程安全的
 3. **克隆错误**: 状态类型必须实现 `Clone`
 4. **生命周期问题**: 确保状态的生命周期长于客户端
@@ -479,14 +472,10 @@ impl MetricsState {
 
 ```rust
 // 调试状态传递
-if let Some(ctx) = context {
-    println!("收到context，类型: {:?}", ctx.type_id());
-    if let Some(state) = ctx.downcast_ref::<AppState>() {
-        println!("成功获取AppState");
-    } else {
-        println!("downcast失败");
-    }
+if let Some(app_state) = state {
+    println!("成功获取AppState: {:?}", std::any::type_name::<AppState>());
+    // 直接使用状态，无需转换
 } else {
-    println!("未收到context");
+    println!("未收到state");
 }
 ```

@@ -95,30 +95,37 @@ pub enum ContentType {
 }
 ```
 
-### `SwanInterceptor`
+### `SwanInterceptor<State>`
 
-拦截器 trait，用于在请求前后进行自定义处理。
+拦截器 trait，用于在请求前后进行自定义处理。现在支持类型安全的状态注入。
 
 ```rust
 #[async_trait]
-pub trait SwanInterceptor {
+pub trait SwanInterceptor<State> {
     async fn before_request(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &Vec<u8>,
+        state: Option<&State>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Vec<u8>)>;
 
     async fn after_response(
         &self,
         response: reqwest::Response,
+        state: Option<&State>,
     ) -> anyhow::Result<reqwest::Response>;
 }
 ```
 
 #### 方法
 
-- `before_request`: 在请求发送前调用，可以修改请求和请求体
-- `after_response`: 在响应接收后调用，可以修改响应
+- `before_request`: 在请求发送前调用，可以修改请求和请求体，支持类型安全的状态访问
+- `after_response`: 在响应接收后调用，可以修改响应，支持类型安全的状态访问
+
+#### 状态类型
+
+- 对于无状态拦截器：使用 `SwanInterceptor<()>`
+- 对于有状态拦截器：使用 `SwanInterceptor<YourStateType>`，提供类型安全的状态访问
 
 ## 使用模式
 
@@ -141,14 +148,14 @@ impl SimpleClient {
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for AuthInterceptor {
-    async fn before_request(&self, request: reqwest::RequestBuilder, body: &Vec<u8>) 
+impl SwanInterceptor<()> for AuthInterceptor {
+    async fn before_request(&self, request: reqwest::RequestBuilder, body: &Vec<u8>, _state: Option<&()>) 
         -> anyhow::Result<(reqwest::RequestBuilder, Vec<u8>)> {
         let authenticated_request = request.header("Authorization", "Bearer token");
         Ok((authenticated_request, body.clone()))
     }
     
-    async fn after_response(&self, response: reqwest::Response) 
+    async fn after_response(&self, response: reqwest::Response, _state: Option<&()>) 
         -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }

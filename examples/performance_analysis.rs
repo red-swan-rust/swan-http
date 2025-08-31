@@ -5,6 +5,7 @@ use swan_common::SwanInterceptor;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::any::Any;
+use log::{info, warn, error, debug};
 
 #[derive(Debug, Deserialize)]
 struct User {
@@ -30,12 +31,12 @@ impl BasicClient {
 struct NoOpInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for NoOpInterceptor {
+impl SwanInterceptor<()> for NoOpInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         Ok((request, Cow::Borrowed(request_body)))
     }
@@ -43,7 +44,7 @@ impl SwanInterceptor for NoOpInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }
@@ -83,17 +84,15 @@ impl AppState {
 struct StateAwareInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for StateAwareInterceptor {
+impl SwanInterceptor<AppState> for StateAwareInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
-        if let Some(ctx) = context {
-            if let Some(_state) = ctx.downcast_ref::<AppState>() {
-                // 状态访问开销测试
-            }
+        if let Some(_app_state) = state {
+            debug!("📊 状态感知拦截器: 访问AppState");
         }
         Ok((request, Cow::Borrowed(request_body)))
     }
@@ -101,7 +100,7 @@ impl SwanInterceptor for StateAwareInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&AppState>,
     ) -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }
@@ -136,7 +135,7 @@ where
     }
     
     let duration = start.elapsed().as_nanos() / iterations as u128;
-    println!("{}: {}ns per call", name, duration);
+    info!("{}: {}ns per call", name, duration);
     duration
 }
 

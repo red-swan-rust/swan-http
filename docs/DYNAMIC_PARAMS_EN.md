@@ -156,20 +156,18 @@ struct AppState {
 struct StateAwareInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for StateAwareInterceptor {
+impl SwanInterceptor<AppState> for StateAwareInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&AppState>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         let mut request = request;
         
         // Get additional auth info from state
-        if let Some(ctx) = context {
-            if let Some(state) = ctx.downcast_ref::<AppState>() {
-                request = request.header("X-Tenant-ID", &state.tenant_id);
-            }
+        if let Some(state) = state {
+            request = request.header("X-Tenant-ID", &state.tenant_id);
         }
         
         Ok((request, Cow::Borrowed(request_body)))
@@ -178,7 +176,7 @@ impl SwanInterceptor for StateAwareInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&AppState>,
     ) -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }
@@ -464,15 +462,23 @@ use log::debug;
 
 // Add debug logging in interceptor
 #[async_trait]
-impl SwanInterceptor for DebugInterceptor {
+impl SwanInterceptor<()> for DebugInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         debug!("Request URL and headers will be dynamically replaced");
         Ok((request, Cow::Borrowed(request_body)))
+    }
+    
+    async fn after_response(
+        &self,
+        response: reqwest::Response,
+        _state: Option<&()>,
+    ) -> anyhow::Result<reqwest::Response> {
+        Ok(response)
     }
 }
 ```
@@ -508,17 +514,25 @@ Dynamic parameters are fully compatible with interceptors:
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for AuthInterceptor {
+impl SwanInterceptor<()> for AuthInterceptor {
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&()>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         // Dynamic parameter substitution happens before interceptor call
         // So the request here already contains substituted URL and headers
         println!("Request has completed dynamic parameter substitution");
         Ok((request, Cow::Borrowed(request_body)))
+    }
+    
+    async fn after_response(
+        &self,
+        response: reqwest::Response,
+        _state: Option<&()>,
+    ) -> anyhow::Result<reqwest::Response> {
+        Ok(response)
     }
 }
 

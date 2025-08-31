@@ -17,40 +17,49 @@ name = "interceptor_usage"
 path = "interceptor_usage.rs"
 
 [[example]]
-name = "complex_api_example"
-path = "complex_api_example.rs"
+name = "complex_api"
+path = "complex_api.rs"
 
 [[example]]
-name = "state_injection_example"
-path = "state_injection_example.rs"
+name = "state_injection"
+path = "state_injection.rs"
 
 [[example]]
-name = "dynamic_params_example"
-path = "dynamic_params_example.rs"
+name = "dynamic_params"
+path = "dynamic_params.rs"
 
 [[example]]
 name = "performance_analysis"
 path = "performance_analysis.rs"
 
 [[example]]
-name = "optimized_performance_analysis"
-path = "optimized_performance_analysis.rs"
+name = "optimized_performance"
+path = "optimized_performance.rs"
 
 [[example]]
-name = "retry_example"
-path = "retry_example.rs"
+name = "retry"
+path = "retry.rs"
 
 [[example]]
-name = "simple_retry_test"
-path = "simple_retry_test.rs"
+name = "simple_retry"
+path = "simple_retry.rs"
 
 [[example]]
-name = "retry_integration_test"
-path = "retry_integration_test.rs"
+name = "retry_integration"
+path = "retry_integration.rs"
 
 [[example]]
-name = "complete_retry_example"
-path = "complete_retry_example.rs"
+name = "complete_retry"
+path = "complete_retry.rs"
+
+[[example]]
+name = "compile_time_type_check"
+path = "compile_time_type_check.rs"
+
+[[example]]
+name = "no_generic_example"
+path = "no_generic_example.rs"
+
 
 [dependencies]
 swan-common = { path = "../swan-common" }

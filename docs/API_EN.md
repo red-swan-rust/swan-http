@@ -97,30 +97,37 @@ pub enum ContentType {
 }
 ```
 
-### `SwanInterceptor`
+### `SwanInterceptor<State>`
 
-Interceptor trait for custom processing before and after requests.
+Interceptor trait for custom processing before and after requests. Now supports type-safe state injection.
 
 ```rust
 #[async_trait]
-pub trait SwanInterceptor {
+pub trait SwanInterceptor<State> {
     async fn before_request(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &Vec<u8>,
+        state: Option<&State>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Vec<u8>)>;
 
     async fn after_response(
         &self,
         response: reqwest::Response,
+        state: Option<&State>,
     ) -> anyhow::Result<reqwest::Response>;
 }
 ```
 
 #### Methods
 
-- `before_request`: Called before sending the request, can modify the request and request body
-- `after_response`: Called after receiving the response, can modify the response
+- `before_request`: Called before sending the request, can modify the request and request body, supports type-safe state access
+- `after_response`: Called after receiving the response, can modify the response, supports type-safe state access
+
+#### State Types
+
+- For stateless interceptors: use `SwanInterceptor<()>`
+- For stateful interceptors: use `SwanInterceptor<YourStateType>` for type-safe state access
 
 ## Usage Patterns
 
@@ -143,14 +150,14 @@ impl SimpleClient {
 struct AuthInterceptor;
 
 #[async_trait]
-impl SwanInterceptor for AuthInterceptor {
-    async fn before_request(&self, request: reqwest::RequestBuilder, body: &Vec<u8>) 
+impl SwanInterceptor<()> for AuthInterceptor {
+    async fn before_request(&self, request: reqwest::RequestBuilder, body: &Vec<u8>, _state: Option<&()>) 
         -> anyhow::Result<(reqwest::RequestBuilder, Vec<u8>)> {
         let authenticated_request = request.header("Authorization", "Bearer token");
         Ok((authenticated_request, body.clone()))
     }
     
-    async fn after_response(&self, response: reqwest::Response) 
+    async fn after_response(&self, response: reqwest::Response, _state: Option<&()>) 
         -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }

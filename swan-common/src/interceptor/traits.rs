@@ -1,96 +1,59 @@
 use async_trait::async_trait;
 use std::borrow::Cow;
-use std::any::Any;
 
-/// 新的统一拦截器接口（基于零拷贝设计）
+/// 客户端状态类型标识 trait
+pub trait ClientStateMarker {
+    type State;
+    const HAS_STATE: bool;
+}
+
+/// Swan HTTP 拦截器接口
 ///
-/// 这是 Swan HTTP 库的高性能拦截器接口，使用 Cow 来避免不必要的内存拷贝。
-///
-/// # 示例
-///
-/// ```rust
-/// use async_trait::async_trait;
-/// use swan_common::SwanInterceptor;
-/// use std::borrow::Cow;
-/// use std::any::Any;
-///
-/// struct AuthInterceptor {
-///     token: String,
-/// }
-///
-/// #[async_trait]
-/// impl SwanInterceptor for AuthInterceptor {
-///     async fn before_request<'a>(
-///         &self,
-///         mut request: reqwest::RequestBuilder,
-///         request_body: &'a [u8],
-///         _context: Option<&(dyn Any + Send + Sync)>,
-///     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
-///         request = request.header("Authorization", format!("Bearer {}", self.token));
-///         Ok((request, Cow::Borrowed(request_body)))
-///     }
-///
-///     async fn after_response(
-///         &self,
-///         response: reqwest::Response,
-///         _context: Option<&(dyn Any + Send + Sync)>,
-///     ) -> anyhow::Result<reqwest::Response> {
-///         Ok(response)
-///     }
-/// }
-/// ```
+/// 统一的拦截器接口，支持有状态和无状态两种模式：
+/// - 无状态：`SwanInterceptor<()>` - state参数会是None
+/// - 有状态：`SwanInterceptor<YourStateType>` - state参数包含类型安全的状态
 #[async_trait]
-pub trait SwanInterceptor {
-    /// 零拷贝的请求前处理
-    /// 
-    /// 使用 Cow 避免不必要的数据拷贝，只有在真正需要修改时才进行克隆
+pub trait SwanInterceptor<State = ()> {
+    /// 请求前处理
     /// 
     /// # 参数
-    /// 
-    /// * `request` - 请求构建器
-    /// * `request_body` - 请求体的借用引用
-    /// * `context` - 可选的应用状态上下文
-    /// 
-    /// # 返回值
-    /// 
-    /// 返回修改后的请求构建器和可能修改的请求体
+    /// - `request`: 请求构建器
+    /// - `request_body`: 请求体字节数组（零拷贝）
+    /// - `state`: 状态对象（有状态时Some，无状态时None）
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&State>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)>;
 
     /// 响应后处理
     /// 
-    /// # 参数
-    /// 
-    /// * `response` - HTTP 响应
-    /// * `context` - 可选的应用状态上下文
-    /// 
-    /// # 返回值
-    /// 
-    /// 返回可能修改的响应
+    /// # 参数  
+    /// - `response`: HTTP响应对象
+    /// - `state`: 状态对象（有状态时Some，无状态时None）
     async fn after_response(
         &self,
         response: reqwest::Response,
-        context: Option<&(dyn Any + Send + Sync)>,
+        state: Option<&State>,
     ) -> anyhow::Result<reqwest::Response>;
-
 }
-
 
 /// 空拦截器实现，用于测试和默认情况
 #[derive(Default)]
 pub struct NoOpInterceptor;
 
+// 通用的空拦截器实现（支持任意状态类型）
 #[async_trait]
-impl SwanInterceptor for NoOpInterceptor {
+impl<State> SwanInterceptor<State> for NoOpInterceptor 
+where 
+    State: Send + Sync,
+{
     async fn before_request<'a>(
         &self,
         request: reqwest::RequestBuilder,
         request_body: &'a [u8],
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&State>,
     ) -> anyhow::Result<(reqwest::RequestBuilder, Cow<'a, [u8]>)> {
         Ok((request, Cow::Borrowed(request_body)))
     }
@@ -98,7 +61,7 @@ impl SwanInterceptor for NoOpInterceptor {
     async fn after_response(
         &self,
         response: reqwest::Response,
-        _context: Option<&(dyn Any + Send + Sync)>,
+        _state: Option<&State>,
     ) -> anyhow::Result<reqwest::Response> {
         Ok(response)
     }
@@ -110,19 +73,39 @@ mod tests {
     use reqwest::Client;
 
     #[tokio::test]
-    async fn test_no_op_interceptor() {
+    async fn test_stateless_no_op_interceptor() {
         let interceptor = NoOpInterceptor;
         let client = Client::new();
         let request = client.get("https://httpbin.org/get");
         let body = vec![1, 2, 3];
 
+        // 无状态：使用 () 类型，state 传入 None
         let (_modified_request, modified_body) = interceptor
-            .before_request(request, &body, None)
+            .before_request(request, &body, None::<&()>)
             .await
             .unwrap();
         
         assert_eq!(modified_body, body);
+    }
+
+    #[tokio::test]
+    async fn test_stateful_no_op_interceptor() {
+        struct TestState {
+            value: i32,
+        }
         
-        // 注意：在实际测试中，我们需要模拟响应而不是发送真实请求
+        let interceptor = NoOpInterceptor;
+        let client = Client::new();
+        let request = client.get("https://httpbin.org/get");
+        let body = vec![1, 2, 3];
+        let state = TestState { value: 42 };
+
+        // 有状态：使用具体的状态类型
+        let (_modified_request, modified_body) = interceptor
+            .before_request(request, &body, Some(&state))
+            .await
+            .unwrap();
+        
+        assert_eq!(modified_body, body);
     }
 }

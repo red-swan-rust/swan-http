@@ -10,7 +10,7 @@ pub mod interceptor;
 // Re-export commonly used types and traits for convenience
 pub use types::{HttpMethod, ContentType, HandlerArgs, HttpClientArgs, RetryPolicy, RetryConfig};
 pub use parsing::{parse_handler_args, parse_http_client_args};
-pub use interceptor::{SwanInterceptor, InterceptorCache, NoOpInterceptor};
+pub use interceptor::{SwanInterceptor, InterceptorCache, NoOpInterceptor, ClientStateMarker};
 
 #[cfg(test)]
 mod integration_tests {
@@ -21,6 +21,7 @@ mod integration_tests {
         // 测试所有公共API都能正确导入
         let _method = HttpMethod::Get;
         let _content_type = ContentType::Json;
+        let _noop = NoOpInterceptor::default();
         
         // 确保解析函数可用
         use syn::parse::ParseStream;

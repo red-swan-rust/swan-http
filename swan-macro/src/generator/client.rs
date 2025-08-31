@@ -36,41 +36,50 @@ pub fn generate_http_client_impl(
     
     let interceptor = &args.interceptor;
 
-    // 生成字段（所有客户端都包含state字段以保持一致性）
+    // 生成字段（根据是否有状态来决定拦截器类型）
     let fields = if let Some(state_type) = &args.state {
         syn::parse_quote! {{
             client: reqwest::Client,
             base_url: String,
-            global_interceptor: Option<std::sync::Arc<dyn swan_common::SwanInterceptor + Send + Sync>>,
+            global_interceptor: Option<std::sync::Arc<dyn swan_common::SwanInterceptor<#state_type> + Send + Sync>>,
             interceptor_cache: std::sync::Mutex<swan_common::InterceptorCache>,
             state: Option<#state_type>,
+        }}
+    } else if args.interceptor.is_some() {
+        syn::parse_quote! {{
+            client: reqwest::Client,
+            base_url: String,
+            global_interceptor: Option<std::sync::Arc<dyn swan_common::SwanInterceptor<()> + Send + Sync>>,
+            interceptor_cache: std::sync::Mutex<swan_common::InterceptorCache>,
+            state: Option<()>,
         }}
     } else {
         syn::parse_quote! {{
             client: reqwest::Client,
             base_url: String,
-            global_interceptor: Option<std::sync::Arc<dyn swan_common::SwanInterceptor + Send + Sync>>,
+            global_interceptor: Option<std::sync::Arc<()>>, // 无拦截器的占位
             interceptor_cache: std::sync::Mutex<swan_common::InterceptorCache>,
-            state: Option<()>, // 空状态类型，保持字段一致性
+            state: Option<()>,
         }}
     };
     
     input.fields = syn::Fields::Named(fields);
 
-    let interceptor_init = interceptor
-        .as_ref()
-        .map(|path| {
-            if args.state.is_some() {
-                quote! { 
-                    Some(std::sync::Arc::new(<#path as Default>::default()) as std::sync::Arc<dyn swan_common::SwanInterceptor + Send + Sync>) 
-                }
-            } else {
-                quote! { 
-                    Some(std::sync::Arc::new(<#path as Default>::default()) as std::sync::Arc<dyn swan_common::SwanInterceptor + Send + Sync>) 
-                }
+    let interceptor_init = if let Some(interceptor_path) = interceptor {
+        if let Some(state_type) = &args.state {
+            // 有状态：创建 SwanInterceptor<StateType>
+            quote! { 
+                Some(std::sync::Arc::new(<#interceptor_path as Default>::default()) as std::sync::Arc<dyn swan_common::SwanInterceptor<#state_type> + Send + Sync>)
             }
-        })
-        .unwrap_or(quote! { None });
+        } else {
+            // 无状态：创建 SwanInterceptor<()>
+            quote! { 
+                Some(std::sync::Arc::new(<#interceptor_path as Default>::default()) as std::sync::Arc<dyn swan_common::SwanInterceptor<()> + Send + Sync>)
+            }
+        }
+    } else {
+        quote! { None }
+    };
 
     // 生成state字段初始化和with_state方法
     // 只有在同时有 state 和 interceptor 时才生成 with_state 方法
@@ -100,6 +109,13 @@ pub fn generate_http_client_impl(
         )
     };
 
+    // 生成状态标识信息
+    let (state_type_for_trait, has_state_flag) = if let Some(state_type) = &args.state {
+        (quote! { #state_type }, quote! { true })
+    } else {
+        (quote! { () }, quote! { false })
+    };
+
     let expanded = quote! {
         #input
 
@@ -123,12 +139,18 @@ pub fn generate_http_client_impl(
             /// 避免首次调用时的创建开销。
             pub fn warmup_interceptor<T>(&self) 
             where 
-                T: swan_common::SwanInterceptor + Default + Send + Sync + 'static,
+                T: Default + Send + Sync + 'static,
             {
                 if let Ok(mut cache) = self.interceptor_cache.lock() {
                     cache.warmup::<T>();
                 }
             }
+        }
+
+        // 为客户端实现状态标识 trait
+        impl swan_common::ClientStateMarker for #struct_name {
+            type State = #state_type_for_trait;
+            const HAS_STATE: bool = #has_state_flag;
         }
     };
 
