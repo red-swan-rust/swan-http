@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/swan-common.svg)](https://crates.io/crates/swan-common)
 [![Documentation](https://docs.rs/swan-common/badge.svg)](https://docs.rs/swan-common)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 
 🌏 **Languages**: [English](README.md) | [中文](README_CN.md)
 
@@ -145,4 +145,4 @@ swan-macro = "0.2"
 
 ## 📄 License
 
-This project is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details.
+This project is licensed under the GPL-3.0 License. See the [LICENSE](../LICENSE) file for details.

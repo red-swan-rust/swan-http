@@ -29,6 +29,14 @@ impl Parse for HttpClientArgs {
             }
         }
 
+        // 验证：如果使用了 state，必须同时提供 interceptor
+        if state.is_some() && interceptor.is_none() {
+            return Err(syn::Error::new(
+                input.span(),
+                "When using 'state', 'interceptor' must also be provided"
+            ));
+        }
+
         Ok(HttpClientArgs {
             base_url,
             interceptor,
@@ -83,6 +91,7 @@ pub fn parse_http_client_args(input: ParseStream) -> syn::Result<HttpClientArgs>
 mod tests {
     use super::*;
     use syn::parse_quote;
+    use quote::quote;
 
     #[test]
     fn test_parse_base_url_value() {
@@ -104,5 +113,22 @@ mod tests {
         let expr = parse_quote! { 123 };
         let result = parse_base_url_value(&expr);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_state_without_interceptor_should_fail() {
+        let tokens = quote! { state = MyState };
+        let result = syn::parse2::<HttpClientArgs>(tokens);
+        assert!(result.is_err());
+        if let Err(err) = result {
+            assert!(err.to_string().contains("When using 'state', 'interceptor' must also be provided"));
+        }
+    }
+
+    #[test]
+    fn test_state_with_interceptor_should_succeed() {
+        let tokens = quote! { interceptor = MyInterceptor, state = MyState };
+        let result = syn::parse2::<HttpClientArgs>(tokens);
+        assert!(result.is_ok());
     }
 }

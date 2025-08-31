@@ -1,6 +1,6 @@
 # Swan HTTP - 声明式 Rust HTTP 客户端
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://opensource.org/licenses/GPL-3.0)
 
 🌏 **Languages**: [English](README.md) | [中文](README_CN.md)
 
@@ -449,4 +449,4 @@ cargo doc --open -p swan-common
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证。详情请查看 [LICENSE](LICENSE) 文件。
+本项目采用 GPL-3.0 许可证。详情请查看 [LICENSE](LICENSE) 文件。

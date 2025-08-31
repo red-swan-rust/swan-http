@@ -73,17 +73,26 @@ pub fn generate_http_client_impl(
         .unwrap_or(quote! { None });
 
     // 生成state字段初始化和with_state方法
+    // 只有在同时有 state 和 interceptor 时才生成 with_state 方法
     let (state_field_init, with_state_method) = if let Some(state_type) = &args.state {
-        (
-            quote! { state: None, },
-            quote! {
-                /// 设置应用状态（链式调用）
-                pub fn with_state(mut self, state: #state_type) -> Self {
-                    self.state = Some(state);
-                    self
+        if args.interceptor.is_some() {
+            (
+                quote! { state: None, },
+                quote! {
+                    /// 设置应用状态（链式调用）
+                    pub fn with_state(mut self, state: #state_type) -> Self {
+                        self.state = Some(state);
+                        self
+                    }
                 }
-            }
-        )
+            )
+        } else {
+            // 这种情况已经在解析阶段被拦截，但为了安全起见保留
+            (
+                quote! { state: None, },
+                quote! {}
+            )
+        }
     } else {
         (
             quote! { state: None, },
