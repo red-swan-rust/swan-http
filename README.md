@@ -186,7 +186,7 @@ impl HttpProxyClient {
 - **Method Override**: Method-level proxy settings override client-level settings
 - **Environment Variables**: Automatic fallback to `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`
 
-For complete proxy configuration guide, see: [docs/proxy.md](docs/PROXY.md)
+For complete proxy configuration guide, see: [docs/PROXY_EN.md](docs/PROXY_EN.md)
 
 ### Interceptors
 
@@ -482,7 +482,7 @@ cargo run --example retry_integration    # 🔄 Retry mechanism integration test
 - **[Retry Mechanism](docs/RETRY_MECHANISM_EN.md)** - Advanced retry configuration and strategies
 - **[Dynamic Parameters](docs/DYNAMIC_PARAMS_EN.md)** - URL and header parameter injection
 - **[State Injection](docs/STATE_INJECTION_EN.md)** - Application state management in interceptors
-- **[Proxy Support](docs/PROXY.md)** - HTTP, HTTPS, and SOCKS5 proxy configuration guide
+- **[Proxy Support](docs/PROXY_EN.md)** - HTTP, HTTPS, and SOCKS5 proxy configuration guide
 
 ### 🌐 Online API Documentation
 
