@@ -21,6 +21,7 @@ Swan HTTP consists of two independent crates:
 - **🆕 State Injection**: Axum-like application state management with dependency injection
 - **🆕 Dynamic Parameters**: Parameter placeholders in URLs and headers, supporting `{param_name}` and `{param0}` syntax
 - **🔄 Smart Retry**: Method-level progressive exponential backoff retry with idempotency protection and intelligent retry conditions
+- **🌐 Proxy Support**: HTTP, HTTPS, and SOCKS5 proxy configuration with authentication and method-level overrides
 - **Multiple Content Types**: Support for JSON, form, and multipart form data
 - **Async-First**: Tokio-based async design
 - **High-Performance Optimization**: Zero-copy, interceptor caching, conditional compilation optimization
@@ -32,8 +33,8 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-swan-macro = "0.3"   # Procedural macro component
-swan-common = "0.3"  # Core runtime component
+swan-macro = "0.3.6"   # Procedural macro component
+swan-common = "0.3.6"  # Core runtime component
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
@@ -142,6 +143,50 @@ impl ApiClient {
 - **Compile-time validation**: Configuration errors caught at compile time
 
 > 📖 **Complete Guide**: See [Retry Mechanism Documentation](docs/RETRY_MECHANISM_EN.md) for all parameters, best practices, and troubleshooting
+
+### 🌐 Proxy Support
+
+Swan HTTP provides comprehensive proxy support for HTTP, HTTPS, and SOCKS5 protocols with flexible configuration options:
+
+```rust
+// HTTP proxy (simple URL form)
+#[http_client(base_url = "https://api.example.com", proxy = "http://proxy.example.com:8080")]
+struct HttpProxyClient;
+
+// SOCKS5 proxy with authentication
+#[http_client(
+    base_url = "https://api.example.com",
+    proxy(url = "socks5://proxy.example.com:1080", username = "user", password = "pass")
+)]
+struct Socks5AuthProxyClient;
+
+// Disable proxy for direct connection
+#[http_client(base_url = "https://api.example.com", proxy = false)]
+struct NoProxyClient;
+
+impl HttpProxyClient {
+    // Use client-level proxy
+    #[get(url = "/users")]
+    async fn get_users(&self) -> anyhow::Result<Vec<User>> {}
+    
+    // Method-level proxy override
+    #[get(url = "/secure", proxy = "socks5://secure-proxy.example.com:1080")]
+    async fn get_secure(&self) -> anyhow::Result<Data> {}
+    
+    // Method-level disable proxy
+    #[get(url = "/local", proxy = false)]
+    async fn get_local(&self) -> anyhow::Result<Data> {}
+}
+```
+
+**Supported Proxy Types:**
+- **HTTP/HTTPS**: `proxy = "http://proxy.example.com:8080"`
+- **SOCKS5**: `proxy = "socks5://proxy.example.com:1080"`
+- **Authentication**: `proxy(url = "...", username = "user", password = "pass")`
+- **Method Override**: Method-level proxy settings override client-level settings
+- **Environment Variables**: Automatic fallback to `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`
+
+For complete proxy configuration guide, see: [docs/proxy-support.md](docs/proxy-support.md)
 
 ### Interceptors
 
@@ -421,6 +466,7 @@ cargo test --test integration_test
 cargo run --example basic_usage           # Basic usage example (includes state injection)
 cargo run --example interceptor_usage     # Interceptor usage example  
 cargo run --example dynamic_params        # 🆕 Dynamic parameters example (URL and header placeholders)
+cargo run --example proxy_usage           # 🌐 Proxy configuration examples (HTTP, SOCKS5, authentication)
 cargo run --example complex_api          # Enterprise API example (performance optimization + state management)
 cargo run --example state_injection      # 🆕 Complete state injection example
 cargo run --example simple_retry         # 🔄 Simple retry functionality test
@@ -436,6 +482,7 @@ cargo run --example retry_integration    # 🔄 Retry mechanism integration test
 - **[Retry Mechanism](docs/RETRY_MECHANISM_EN.md)** - Advanced retry configuration and strategies
 - **[Dynamic Parameters](docs/DYNAMIC_PARAMS_EN.md)** - URL and header parameter injection
 - **[State Injection](docs/STATE_INJECTION_EN.md)** - Application state management in interceptors
+- **[Proxy Support](docs/proxy-support.md)** - HTTP, HTTPS, and SOCKS5 proxy configuration guide
 
 ### 🌐 Online API Documentation
 

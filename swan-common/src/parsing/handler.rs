@@ -1,7 +1,7 @@
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{LitStr, Meta, Path, Token};
-use crate::types::{ContentType, HandlerArgs, HttpMethod, RetryConfig};
+use crate::types::{ContentType, HandlerArgs, HttpMethod, RetryConfig, ProxyConfig, ProxyType};
 
 impl Parse for HandlerArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
@@ -11,39 +11,49 @@ impl Parse for HandlerArgs {
         let mut headers = Punctuated::new();
         let mut interceptor = None;
         let mut retry = None;
+        let mut proxy = None;
 
         let pairs = Punctuated::<Meta, Token![,]>::parse_terminated(input)?;
         for pair in pairs {
-            if let Meta::NameValue(name_value) = pair {
-                let key = name_value.path.get_ident().ok_or_else(|| {
-                    syn::Error::new_spanned(&name_value.path, "expected identifier as key")
-                })?;
+            match pair {
+                Meta::NameValue(name_value) => {
+                    let key = name_value.path.get_ident().ok_or_else(|| {
+                        syn::Error::new_spanned(&name_value.path, "expected identifier as key")
+                    })?;
 
-                match key.to_string().as_str() {
-                    "url" => {
-                        url = Some(parse_url_value(&name_value.value)?);
-                    }
-                    "content_type" => {
-                        content_type = Some(parse_content_type_value(&name_value.value)?);
-                    }
-                    "header" => {
-                        headers.push(parse_header_value(&name_value.value)?);
-                    }
-                    "interceptor" => {
-                        interceptor = Some(parse_interceptor_value(&name_value.value)?);
-                    }
-                    "retry" => {
-                        retry = Some(parse_retry_value(&name_value.value)?);
-                    }
-                    _ => {
-                        return Err(syn::Error::new_spanned(
-                            key,
-                            "Only 'url', 'content_type', 'header', 'interceptor', and 'retry' are supported",
-                        ));
+                    match key.to_string().as_str() {
+                        "url" => {
+                            url = Some(parse_url_value(&name_value.value)?);
+                        }
+                        "content_type" => {
+                            content_type = Some(parse_content_type_value(&name_value.value)?);
+                        }
+                        "header" => {
+                            headers.push(parse_header_value(&name_value.value)?);
+                        }
+                        "interceptor" => {
+                            interceptor = Some(parse_interceptor_value(&name_value.value)?);
+                        }
+                        "retry" => {
+                            retry = Some(parse_retry_value(&name_value.value)?);
+                        }
+                        "proxy" => {
+                            proxy = Some(parse_proxy_simple_value(&name_value.value)?);
+                        }
+                        _ => {
+                            return Err(syn::Error::new_spanned(
+                                key,
+                                "Only 'url', 'content_type', 'header', 'interceptor', 'retry', and 'proxy' are supported",
+                            ));
+                        }
                     }
                 }
-            } else {
-                return Err(syn::Error::new_spanned(pair, "expected key-value pair"));
+                Meta::List(meta_list) if meta_list.path.is_ident("proxy") => {
+                    proxy = Some(parse_proxy_full_value(&meta_list)?);
+                }
+                _ => {
+                    return Err(syn::Error::new_spanned(pair, "expected key-value pair or function-like macro"));
+                }
             }
         }
 
@@ -57,6 +67,7 @@ impl Parse for HandlerArgs {
             headers,
             interceptor,
             retry,
+            proxy,
         })
     }
 }
@@ -142,6 +153,120 @@ fn parse_retry_value(value: &syn::Expr) -> syn::Result<RetryConfig> {
             "retry must be a string literal (e.g., \"exponential(3, 100ms)\")",
         ))
     }
+}
+
+fn parse_proxy_simple_value(value: &syn::Expr) -> syn::Result<ProxyConfig> {
+    match value {
+        syn::Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Str(lit),
+            ..
+        }) => Ok(ProxyConfig::Simple(lit.clone())),
+        syn::Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Bool(lit),
+            ..
+        }) => {
+            if lit.value {
+                Err(syn::Error::new_spanned(
+                    value,
+                    "proxy = true is not supported, use proxy = \"url\" instead",
+                ))
+            } else {
+                Ok(ProxyConfig::Disabled(lit.clone()))
+            }
+        }
+        _ => Err(syn::Error::new_spanned(
+            value,
+            "proxy must be a string literal (URL) or false (to disable)",
+        ))
+    }
+}
+
+fn parse_proxy_full_value(meta_list: &syn::MetaList) -> syn::Result<ProxyConfig> {
+    let mut proxy_type = None;
+    let mut url = None;
+    let mut username = None;
+    let mut password = None;
+    let mut no_proxy = None;
+
+    let nested = meta_list.parse_args_with(Punctuated::<syn::Meta, Token![,]>::parse_terminated)?;
+    
+    for meta in nested {
+        if let syn::Meta::NameValue(nv) = meta {
+            if nv.path.is_ident("type") {
+                if let syn::Expr::Path(expr_path) = &nv.value {
+                    if let Some(ident) = expr_path.path.get_ident() {
+                        let type_str = ident.to_string();
+                        proxy_type = ProxyType::from_str(&type_str);
+                        if proxy_type.is_none() {
+                            return Err(syn::Error::new_spanned(
+                                &nv.value, 
+                                "proxy type must be 'http' or 'socks5'"
+                            ));
+                        }
+                    } else {
+                        return Err(syn::Error::new_spanned(&nv.value, "proxy type must be an identifier"));
+                    }
+                } else {
+                    return Err(syn::Error::new_spanned(&nv.value, "proxy type must be an identifier"));
+                }
+            } else if nv.path.is_ident("url") {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(lit),
+                    ..
+                }) = &nv.value {
+                    url = Some(lit.clone());
+                } else {
+                    return Err(syn::Error::new_spanned(&nv.value, "url must be a string literal"));
+                }
+            } else if nv.path.is_ident("username") {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(lit),
+                    ..
+                }) = &nv.value {
+                    username = Some(lit.clone());
+                } else {
+                    return Err(syn::Error::new_spanned(&nv.value, "username must be a string literal"));
+                }
+            } else if nv.path.is_ident("password") {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(lit),
+                    ..
+                }) = &nv.value {
+                    password = Some(lit.clone());
+                } else {
+                    return Err(syn::Error::new_spanned(&nv.value, "password must be a string literal"));
+                }
+            } else if nv.path.is_ident("no_proxy") {
+                if let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(lit),
+                    ..
+                }) = &nv.value {
+                    no_proxy = Some(lit.clone());
+                } else {
+                    return Err(syn::Error::new_spanned(&nv.value, "no_proxy must be a string literal"));
+                }
+            } else {
+                return Err(syn::Error::new_spanned(
+                    &nv.path,
+                    "Only 'type', 'url', 'username', 'password', or 'no_proxy' are supported in proxy configuration",
+                ));
+            }
+        } else {
+            return Err(syn::Error::new_spanned(meta, "Expected key-value pair in proxy configuration"));
+        }
+    }
+
+    let url = url.ok_or_else(|| {
+        syn::Error::new_spanned(&meta_list.path, "proxy configuration must include 'url'")
+    })?;
+
+    Ok(ProxyConfig::Full {
+        proxy_type,
+        url,
+        username,
+        password,
+        no_proxy,
+    })
 }
 
 /// 解析处理器参数的公共函数

@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use swan_common::HttpClientArgs;
+use swan_common::{HttpClientArgs, ProxyConfig, ProxyType};
 use syn::ItemStruct;
 
 /// 生成 HTTP 客户端的实现代码
@@ -131,6 +131,9 @@ pub fn generate_http_client_impl(
         quote! {}
     };
 
+    // 生成客户端创建代码（根据代理配置）
+    let client_creation = generate_client_creation(&args.proxy)?;
+
     let expanded = quote! {
         #conditional_trait_export
 
@@ -140,7 +143,7 @@ pub fn generate_http_client_impl(
             /// 创建新的 HTTP 客户端实例
             pub fn new() -> Self {
                 #struct_name {
-                    client: reqwest::Client::new(),
+                    client: #client_creation,
                     base_url: #base_url.to_string(),
                     #interceptor_init
                     interceptor_cache: std::sync::Mutex::new(swan_common::InterceptorCache::new()),
@@ -174,6 +177,157 @@ pub fn generate_http_client_impl(
     Ok(TokenStream::from(expanded))
 }
 
+/// 生成客户端创建代码（根据代理配置）
+fn generate_client_creation(proxy_config: &Option<ProxyConfig>) -> Result<proc_macro2::TokenStream, syn::Error> {
+    match proxy_config {
+        None => {
+            // 无代理配置，使用默认客户端
+            Ok(quote! { reqwest::Client::new() })
+        }
+        Some(ProxyConfig::Disabled(_)) => {
+            // 明确禁用代理
+            Ok(quote! {
+                reqwest::Client::builder()
+                    .no_proxy()
+                    .build()
+                    .unwrap_or_else(|e| panic!("Failed to create HTTP client with no proxy: {}", e))
+            })
+        }
+        Some(proxy_config @ ProxyConfig::Simple(_)) => {
+            let url = proxy_config.url().unwrap();
+            let url_value = &url.value();
+            
+            match proxy_config.infer_proxy_type() {
+                Some(ProxyType::Http) => {
+                    Ok(quote! {
+                        {
+                            let proxy_url = #url_value;
+                            let proxy = reqwest::Proxy::all(proxy_url)
+                                .unwrap_or_else(|e| panic!("Invalid HTTP proxy URL '{}': {}", proxy_url, e));
+                            
+                            reqwest::Client::builder()
+                                .proxy(proxy)
+                                .build()
+                                .unwrap_or_else(|e| panic!("Failed to create HTTP client with proxy '{}': {}", proxy_url, e))
+                        }
+                    })
+                }
+                Some(ProxyType::Socks5) => {
+                    Ok(quote! {
+                        {
+                            let proxy_url = #url_value;
+                            let proxy = reqwest::Proxy::all(proxy_url)
+                                .unwrap_or_else(|e| panic!("Invalid SOCKS5 proxy URL '{}': {}", proxy_url, e));
+                            
+                            reqwest::Client::builder()
+                                .proxy(proxy)
+                                .build()
+                                .unwrap_or_else(|e| panic!("Failed to create HTTP client with proxy '{}': {}", proxy_url, e))
+                        }
+                    })
+                }
+                None => {
+                    Err(syn::Error::new_spanned(
+                        url,
+                        "Cannot infer proxy type from URL. Use proxy(type = http/socks5, url = \"...\") format or ensure URL starts with http://, https://, or socks5://"
+                    ))
+                }
+            }
+        }
+        Some(proxy_config @ ProxyConfig::Full { url, username, password, no_proxy, .. }) => {
+            let url_value = &url.value();
+            let username_value = username.as_ref().map(|u| u.value());
+            let password_value = password.as_ref().map(|p| p.value());
+            let no_proxy_value = no_proxy.as_ref().map(|np| np.value());
+
+            match proxy_config.infer_proxy_type() {
+                Some(ProxyType::Http) => {
+                    // HTTP 代理配置
+                    let auth_code = match (username_value, password_value) {
+                        (Some(username), Some(password)) => {
+                            quote! {
+                                proxy = proxy.basic_auth(#username, #password);
+                            }
+                        }
+                        _ => quote! {}
+                    };
+                    
+                    let no_proxy_code = match no_proxy_value {
+                        Some(no_proxy_domains) => {
+                            quote! {
+                                eprintln!("Warning: no_proxy configuration '{}' is not directly supported by reqwest. Consider using environment variables.", #no_proxy_domains);
+                            }
+                        }
+                        None => quote! {}
+                    };
+
+                    Ok(quote! {
+                        {
+                            let proxy_url = #url_value;
+                            let mut proxy = reqwest::Proxy::all(proxy_url)
+                                .unwrap_or_else(|e| panic!("Invalid HTTP proxy URL '{}': {}", proxy_url, e));
+
+                            #auth_code
+
+                            let client_builder = reqwest::Client::builder().proxy(proxy);
+
+                            #no_proxy_code
+
+                            client_builder
+                                .build()
+                                .unwrap_or_else(|e| panic!("Failed to create HTTP client with proxy '{}': {}", proxy_url, e))
+                        }
+                    })
+                }
+                Some(ProxyType::Socks5) => {
+                    // SOCKS5 代理配置
+                    let auth_code = match (username_value, password_value) {
+                        (Some(username), Some(password)) => {
+                            quote! {
+                                proxy = proxy.basic_auth(#username, #password);
+                            }
+                        }
+                        _ => quote! {}
+                    };
+                    
+                    let no_proxy_code = match no_proxy_value {
+                        Some(no_proxy_domains) => {
+                            quote! {
+                                eprintln!("Warning: no_proxy configuration '{}' is not directly supported by reqwest. Consider using environment variables.", #no_proxy_domains);
+                            }
+                        }
+                        None => quote! {}
+                    };
+
+                    Ok(quote! {
+                        {
+                            let proxy_url = #url_value;
+                            let mut proxy = reqwest::Proxy::all(proxy_url)
+                                .unwrap_or_else(|e| panic!("Invalid SOCKS5 proxy URL '{}': {}", proxy_url, e));
+
+                            #auth_code
+
+                            let client_builder = reqwest::Client::builder().proxy(proxy);
+
+                            #no_proxy_code
+
+                            client_builder
+                                .build()
+                                .unwrap_or_else(|e| panic!("Failed to create HTTP client with proxy '{}': {}", proxy_url, e))
+                        }
+                    })
+                }
+                None => {
+                    Err(syn::Error::new_spanned(
+                        url,
+                        "Cannot infer proxy type. Use proxy(type = http/socks5, url = \"...\") format or ensure URL starts with http://, https://, or socks5://"
+                    ))
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,6 +344,7 @@ mod tests {
             base_url: Some(LitStr::new("https://api.test.com", Span::call_site())),
             interceptor: None,
             state: None,
+            proxy: None,
         };
 
         // 测试基本验证逻辑，不依赖TokenStream
@@ -210,6 +365,7 @@ mod tests {
             base_url: None,
             interceptor: None,
             state: None,
+            proxy: None,
         };
 
         // 测试验证逻辑，应该检测到非空结构体

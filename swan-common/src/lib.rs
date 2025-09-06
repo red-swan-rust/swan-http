@@ -8,7 +8,7 @@ pub mod parsing;
 pub mod interceptor;
 
 // Re-export commonly used types and traits for convenience
-pub use types::{HttpMethod, ContentType, HandlerArgs, HttpClientArgs, RetryPolicy, RetryConfig};
+pub use types::{HttpMethod, ContentType, HandlerArgs, HttpClientArgs, RetryPolicy, RetryConfig, ProxyConfig, ProxyType};
 pub use parsing::{parse_handler_args, parse_http_client_args};
 pub use interceptor::{SwanInterceptor, SwanStatefulInterceptor, InterceptorCache, NoOpInterceptor, ClientStateMarker};
 

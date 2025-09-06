@@ -2,6 +2,7 @@ use syn::punctuated::Punctuated;
 use syn::{LitStr, Path, Token};
 use crate::types::http::{HttpMethod, ContentType};
 use crate::types::retry::RetryConfig;
+use crate::types::proxy::ProxyConfig;
 
 /// HTTP 处理器参数配置
 pub struct HandlerArgs {
@@ -11,6 +12,7 @@ pub struct HandlerArgs {
     pub headers: Punctuated<LitStr, Token![,]>,
     pub interceptor: Option<Path>,
     pub retry: Option<RetryConfig>,
+    pub proxy: Option<ProxyConfig>,
 }
 
 /// HTTP 客户端参数配置
@@ -18,6 +20,7 @@ pub struct HttpClientArgs {
     pub base_url: Option<LitStr>,
     pub interceptor: Option<Path>,
     pub state: Option<Path>,
+    pub proxy: Option<ProxyConfig>,
 }
 
 #[cfg(test)]
@@ -38,6 +41,7 @@ mod tests {
             headers,
             interceptor: None,
             retry: None,
+            proxy: None,
         };
 
         assert_eq!(args.method, HttpMethod::Get);
@@ -53,6 +57,7 @@ mod tests {
             base_url,
             interceptor: None,
             state: None,
+            proxy: None,
         };
 
         assert!(args.base_url.is_some());

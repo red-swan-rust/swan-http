@@ -48,7 +48,7 @@ impl RequestBuilder {
         quote! {
             #url_code
 
-            let request_builder = self.client
+            let request_builder = effective_client
                 .#method_ident(&full_url)
                 #content_type_header
                 #(#header_statements)*

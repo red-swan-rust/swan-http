@@ -24,14 +24,42 @@ use syn::{ItemStruct, parse_macro_input};
 /// 
 /// * `base_url` - 可选的基础 URL
 /// * `interceptor` - 可选的全局拦截器
+/// * `proxy` - 可选的代理配置（支持 HTTP/HTTPS/SOCKS5）
 /// 
 /// # 示例
 /// 
 /// ```rust
 /// use swan_macro::http_client;
 /// 
+/// // 基本使用
 /// #[http_client(base_url = "https://api.example.com")]
 /// struct ApiClient;
+/// 
+/// // 使用 HTTP 代理
+/// #[http_client(base_url = "https://api.example.com", proxy = "http://proxy.example.com:8080")]
+/// struct ProxyClient;
+/// 
+/// // 使用 SOCKS5 代理
+/// #[http_client(base_url = "https://api.example.com", proxy = "socks5://proxy.example.com:1080")]
+/// struct Socks5Client;
+/// 
+/// // 显式指定代理类型和地址
+/// #[http_client(
+///     base_url = "https://api.example.com", 
+///     proxy(type = http, url = "proxy.example.com:8080")
+/// )]
+/// struct TypedProxyClient;
+/// 
+/// // 使用带认证的 SOCKS5 代理
+/// #[http_client(
+///     base_url = "https://api.example.com", 
+///     proxy(type = socks5, url = "proxy.example.com:1080", username = "user", password = "pass")
+/// )]
+/// struct AuthProxyClient;
+/// 
+/// // 禁用代理
+/// #[http_client(base_url = "https://api.example.com", proxy = false)]
+/// struct NoProxyClient;
 /// ```
 #[proc_macro_attribute]
 pub fn http_client(args: TokenStream, item: TokenStream) -> TokenStream {
@@ -54,6 +82,7 @@ pub fn http_client(args: TokenStream, item: TokenStream) -> TokenStream {
 /// * `content_type` - 可选的内容类型
 /// * `header` - 可选的额外头部
 /// * `interceptor` - 可选的方法级拦截器
+/// * `proxy` - 可选的代理配置（覆盖客户端级别配置）
 /// 
 /// # 示例
 /// 
@@ -77,6 +106,14 @@ pub fn http_client(args: TokenStream, item: TokenStream) -> TokenStream {
 /// impl ApiClient {
 ///     #[post(url = "/users", content_type = json)]
 ///     async fn create_user(&self, body: CreateUserRequest) -> anyhow::Result<User> {}
+///     
+///     // 为特定方法使用代理
+///     #[post(url = "/secure", content_type = json, proxy = "http://secure-proxy.com:8080")]
+///     async fn secure_request(&self, body: CreateUserRequest) -> anyhow::Result<User> {}
+///     
+///     // 为特定方法禁用代理
+///     #[get(url = "/local", proxy = false)]
+///     async fn local_request(&self) -> anyhow::Result<User> {}
 /// }
 /// ```
 #[proc_macro_attribute]
@@ -93,6 +130,7 @@ pub fn post(args: TokenStream, item: TokenStream) -> TokenStream {
 /// * `url` - 请求 URL（相对于客户端基础 URL）
 /// * `header` - 可选的额外头部
 /// * `interceptor` - 可选的方法级拦截器
+/// * `proxy` - 可选的代理配置（覆盖客户端级别配置）
 /// 
 /// # 示例
 /// 
@@ -110,6 +148,10 @@ pub fn post(args: TokenStream, item: TokenStream) -> TokenStream {
 /// impl ApiClient {
 ///     #[get(url = "/users/1")]
 ///     async fn get_user(&self) -> anyhow::Result<User> {}
+///     
+///     // 使用 SOCKS5 代理获取敏感数据
+///     #[get(url = "/sensitive", proxy(type = socks5, url = "proxy.example.com:1080"))]
+///     async fn get_sensitive(&self) -> anyhow::Result<User> {}
 /// }
 /// ```
 #[proc_macro_attribute]

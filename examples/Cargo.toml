@@ -60,6 +60,11 @@ path = "compile_time_type_check.rs"
 name = "no_generic_example"
 path = "no_generic_example.rs"
 
+[[example]]
+name = "proxy_usage"
+path = "proxy_usage.rs"
+
+
 
 
 [dependencies]

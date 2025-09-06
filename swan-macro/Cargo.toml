@@ -1,6 +1,6 @@
 [package]
 name = "swan-macro"
-version = "0.3.3"
+version = "0.3.6"
 edition = "2024"
 authors = ["CC Cheung <iwanttobeaprince@gmail.com>"]
 description = "A declarative HTTP client library for Rust"
@@ -20,4 +20,4 @@ quote = "1.0"
 proc-macro2 = "1.0"
 heck = "0.5.0"
 serde_json = { workspace = true }
-swan-common = "0.3.3"
+swan-common = "0.3.6"

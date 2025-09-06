@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use swan_common::HandlerArgs;
+use swan_common::{HandlerArgs, ProxyConfig, ProxyType};
 use syn::{FnArg, Signature};
 use crate::conversion::generate_type_conversion;
 use crate::error::ErrorHandler;
@@ -49,6 +49,13 @@ pub fn generate_http_method_impl(fn_sig: &Signature, handler_args: &HandlerArgs,
 
     // 生成缓存式拦截器处理代码 - 传递状态类型信息
     let method_interceptor_access = CachedInterceptorProcessor::generate_cached_interceptor_access(&handler_args.interceptor, client_state_type);
+    
+    // 生成客户端选择代码（根据方法级代理配置）
+    let client_selection = match generate_client_selection(&handler_args.proxy) {
+        Ok(code) => code,
+        Err(error) => return error.to_compile_error().into(),
+    };
+    
     let request_builder_code = RequestBuilder::generate_request_builder_code(handler_args, &body_method_call, inputs);
 
     // 生成类型转换代码
@@ -68,6 +75,8 @@ pub fn generate_http_method_impl(fn_sig: &Signature, handler_args: &HandlerArgs,
 
     let expanded = quote! {
         pub async fn #fn_name(&self #body_param) #output {
+
+            #client_selection
 
             #request_builder_code
 
@@ -101,6 +110,118 @@ pub fn generate_http_method_impl(fn_sig: &Signature, handler_args: &HandlerArgs,
     };
 
     TokenStream::from(expanded)
+}
+
+/// 生成客户端选择代码（支持方法级代理覆盖）
+fn generate_client_selection(proxy_config: &Option<ProxyConfig>) -> Result<proc_macro2::TokenStream, syn::Error> {
+    match proxy_config {
+        None => {
+            // 无方法级代理配置，使用实例客户端
+            Ok(quote! {
+                let effective_client = &self.client;
+            })
+        }
+        Some(ProxyConfig::Disabled(_)) => {
+            // 方法级禁用代理，创建临时无代理客户端
+            Ok(quote! {
+                let effective_client = &{
+                    static METHOD_CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+                    METHOD_CLIENT.get_or_init(|| {
+                        reqwest::Client::builder()
+                            .no_proxy()
+                            .build()
+                            .unwrap_or_else(|e| panic!("Failed to create HTTP client with no proxy: {}", e))
+                    })
+                };
+            })
+        }
+        Some(proxy_config @ ProxyConfig::Simple(_)) => {
+            let url = proxy_config.url().unwrap();
+            let url_value = &url.value();
+            
+            match proxy_config.infer_proxy_type() {
+                Some(ProxyType::Http) | Some(ProxyType::Socks5) => {
+                    Ok(quote! {
+                        let effective_client = &{
+                            static METHOD_CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+                            METHOD_CLIENT.get_or_init(|| {
+                                let proxy_url = #url_value;
+                                let proxy = reqwest::Proxy::all(proxy_url)
+                                    .unwrap_or_else(|e| panic!("Invalid proxy URL '{}': {}", proxy_url, e));
+                                
+                                reqwest::Client::builder()
+                                    .proxy(proxy)
+                                    .build()
+                                    .unwrap_or_else(|e| panic!("Failed to create HTTP client with proxy '{}': {}", proxy_url, e))
+                            })
+                        };
+                    })
+                }
+                None => {
+                    Err(syn::Error::new_spanned(
+                        url,
+                        "Cannot infer proxy type from URL. Use proxy(type = http/socks5, url = \"...\") format or ensure URL starts with http://, https://, or socks5://"
+                    ))
+                }
+            }
+        }
+        Some(proxy_config @ ProxyConfig::Full { url, username, password, no_proxy, .. }) => {
+            let url_value = &url.value();
+            let username_value = username.as_ref().map(|u| u.value());
+            let password_value = password.as_ref().map(|p| p.value());
+            let no_proxy_value = no_proxy.as_ref().map(|np| np.value());
+
+            match proxy_config.infer_proxy_type() {
+                Some(ProxyType::Http) | Some(ProxyType::Socks5) => {
+                    // 方法级完整代理配置，创建临时代理客户端
+                    let auth_code = match (username_value, password_value) {
+                        (Some(username), Some(password)) => {
+                            quote! {
+                                proxy = proxy.basic_auth(#username, #password);
+                            }
+                        }
+                        _ => quote! {}
+                    };
+                    
+                    let no_proxy_code = match no_proxy_value {
+                        Some(no_proxy_domains) => {
+                            quote! {
+                                eprintln!("Warning: no_proxy configuration '{}' is not directly supported by reqwest. Consider using environment variables.", #no_proxy_domains);
+                            }
+                        }
+                        None => quote! {}
+                    };
+
+                    Ok(quote! {
+                        let effective_client = &{
+                            static METHOD_CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+                            METHOD_CLIENT.get_or_init(|| {
+                                let proxy_url = #url_value;
+                                let mut proxy = reqwest::Proxy::all(proxy_url)
+                                    .unwrap_or_else(|e| panic!("Invalid proxy URL '{}': {}", proxy_url, e));
+
+                                #auth_code
+
+                                let client_builder = reqwest::Client::builder().proxy(proxy);
+
+                                #no_proxy_code
+
+                                client_builder
+                                    .build()
+                                    .unwrap_or_else(|e| panic!("Failed to create HTTP client with proxy '{}': {}", proxy_url, e))
+                            })
+                        };
+                    })
+                }
+                None => {
+                    Err(syn::Error::new_spanned(
+                        url,
+                        "Cannot infer proxy type. Use proxy(type = http/socks5, url = \"...\") format or ensure URL starts with http://, https://, or socks5://"
+                    ))
+                }
+            }
+        }
+    }
 }
 
 /// 生成拦截器调用代码

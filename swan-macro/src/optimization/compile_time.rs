@@ -272,6 +272,7 @@ mod tests {
             content_type: None,
             interceptor: None,
             retry: None,
+            proxy: None,
         };
         
         let result = CompileTimeOptimizer::generate_request_execution_strategy(&handler_args);
@@ -307,6 +308,7 @@ mod tests {
             content_type: None,
             interceptor: None,
             retry: None,
+            proxy: None,
         };
         
         let result = CompileTimeOptimizer::generate_compile_time_checks(&handler_args);

@@ -236,13 +236,12 @@ impl RetryProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use syn::parse_quote;
 
     #[test]
     fn test_generate_retry_execution_no_config() {
         let result = RetryProcessor::generate_retry_execution_code(&None, &swan_common::HttpMethod::Get);
         let result_str = result.to_string();
-        assert!(result_str.contains("client.execute(request)"));
+        assert!(result_str.contains("self . client . execute (request)")); // quote!宏会在token间添加空格
         assert!(!result_str.contains("MAX_ATTEMPTS"));
     }
 
@@ -265,7 +264,7 @@ mod tests {
         let result = RetryProcessor::generate_retry_condition_code();
         let result_str = result.to_string();
         assert!(result_str.contains("should_retry_response"));
-        assert!(result_str.contains("500..=599"));
+        assert!(result_str.contains("500 ..= 599")); // quote!宏会在操作符间添加空格
         assert!(result_str.contains("429"));
     }
 

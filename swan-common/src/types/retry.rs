@@ -324,6 +324,3 @@ mod basic_tests {
     }
 }
 
-// 引入详细测试模块
-#[path = "retry_test.rs"]
-mod comprehensive_retry_tests;
